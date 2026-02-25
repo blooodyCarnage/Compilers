@@ -479,17 +479,14 @@ namespace comp
         }
         private void УдалитьТекст()
         {
-            // Проверяем, есть ли выделенный текст
             if (textBox1.SelectionLength > 0)
             {
-                // Сохраняем состояние для Undo
                 if (!ignoreTextChanges)
                 {
                     undoStack.Push(textBox1.Text);
                     redoStack.Clear();
                 }
 
-                // Удаляем выделенный текст
                 int selectionStart = textBox1.SelectionStart;
                 string textBefore = textBox1.Text.Substring(0, selectionStart);
                 string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
@@ -548,6 +545,28 @@ namespace comp
             MessageBox.Show(
                 "Работу сделал Марченко А.Е. АП-326",
                 "Об авторе",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void toolStripButton2_Click_1(object sender, EventArgs e)
+        {
+            string helpMessage =
+                "Реализованные функции:\n" +
+                "• Создать - создание нового файла\n" +
+                "• Открыть  - открытие существующего файла\n" +
+                "• Сохранить - сохранение текущего файла\n" +
+                "• Сохранить как - сохранение файла под новым именем\n" +
+                "• Выход - завершение работы\n" +
+                "• Отменить - отмена последнего действия\n" +
+                "• Повторить - повтор отмененного действия\n" +
+                "• Вырезать - вырезать выделенный текст\n" +
+                "• Копировать - копировать выделенный текст\n" +
+                "• Вставить - вставить текст из буфера\n" +
+                "• Удалить  - удалить выделенный текст\n" +
+                "• Выделить всё - выделить весь текст\n\n";
+
+            MessageBox.Show(helpMessage, "Справка",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
