@@ -81,10 +81,9 @@
             this.справкаToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(1105, 30);
+            this.menuStrip1.Size = new System.Drawing.Size(1105, 28);
             this.menuStrip1.TabIndex = 0;
             this.menuStrip1.Text = "menuStrip1";
-            this.menuStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.menuStrip1_ItemClicked);
             // 
             // файлToolStripMenuItem
             // 
@@ -283,9 +282,9 @@
             this.вырезатьToolStripButton,
             this.вставкаToolStripButton,
             this.toolStripSeparator1});
-            this.toolStrip1.Location = new System.Drawing.Point(0, 30);
+            this.toolStrip1.Location = new System.Drawing.Point(0, 28);
             this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(1105, 31);
+            this.toolStrip1.Size = new System.Drawing.Size(1105, 27);
             this.toolStrip1.TabIndex = 1;
             this.toolStrip1.Text = "toolStrip1";
             // 
@@ -295,9 +294,8 @@
             this.создатьToolStripButton.Image = ((System.Drawing.Image)(resources.GetObject("создатьToolStripButton.Image")));
             this.создатьToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.создатьToolStripButton.Name = "создатьToolStripButton";
-            this.создатьToolStripButton.Size = new System.Drawing.Size(29, 28);
+            this.создатьToolStripButton.Size = new System.Drawing.Size(29, 24);
             this.создатьToolStripButton.Text = "&Создать";
-            this.создатьToolStripButton.Click += new System.EventHandler(this.создатьToolStripButton_Click);
             // 
             // открытьToolStripButton
             // 
@@ -385,7 +383,6 @@
             this.textBox1.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.textBox1.Size = new System.Drawing.Size(1069, 173);
             this.textBox1.TabIndex = 2;
-            this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged_1);
             // 
             // textBox2
             // 
@@ -399,9 +396,8 @@
             this.textBox2.Name = "textBox2";
             this.textBox2.ReadOnly = true;
             this.textBox2.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.textBox2.Size = new System.Drawing.Size(1069, 177);
+            this.textBox2.Size = new System.Drawing.Size(1069, 207);
             this.textBox2.TabIndex = 3;
-            this.textBox2.TextChanged += new System.EventHandler(this.textBox2_TextChanged);
             // 
             // Form1
             // 
