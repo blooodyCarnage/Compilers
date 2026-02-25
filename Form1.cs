@@ -73,24 +73,35 @@ namespace comp
         {
             СоздатьНовыйФайл();
         }
-
-        private void сохранитьToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            СохранитьФайл();
-        }
-
         private void СоздатьНовыйФайл()
         {
             if (!string.IsNullOrEmpty(textBox1.Text))
             {
                 DialogResult result = MessageBox.Show(
-                    "Хотите сохранить изменения?",
+                    "Сохранить изменения перед созданием нового файла?",
                     "Создание нового файла",
-                    MessageBoxButtons.YesNoCancel);
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
 
                 if (result == DialogResult.Yes)
                 {
-                    СохранитьФайл();
+                    if (!string.IsNullOrEmpty(currentFileName))
+                    {
+                        СохранитьФайл();
+                    }
+                    else
+                    {
+                        if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                        {
+                            string filename = saveFileDialog1.FileName;
+                            File.WriteAllText(filename, textBox1.Text);
+                            currentFileName = filename;
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
                 }
                 else if (result == DialogResult.Cancel)
                 {
@@ -98,8 +109,32 @@ namespace comp
                 }
             }
 
-            textBox1.Clear();
-            currentFileName = "";
+            saveFileDialog1.FileName = "Новый документ.txt";
+
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    string newFileName = saveFileDialog1.FileName;
+                    File.WriteAllText(newFileName, "");
+
+                    textBox1.Clear();
+
+                    currentFileName = newFileName;
+
+                    MessageBox.Show($"Новый файл создан и сохранен как:\n{newFileName}",
+                        "Успешно", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при создании файла: {ex.Message}",
+                        "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+        private void сохранитьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            СохранитьФайл();
         }
 
         private void СохранитьФайл()
@@ -234,12 +269,12 @@ namespace comp
 
         private void сохранитьКакToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
+            СохранитьФайл();
         }
 
         private void создатьToolStripButton_Click(object sender, EventArgs e)
         {
-
+            СоздатьНовыйФайл();
         }
 
         private void вставкаToolStripButton_Click(object sender, EventArgs e)
@@ -298,7 +333,7 @@ namespace comp
             }
         }
 
-        private void toolStripButton2_Click(object sender, EventArgs e) 
+        private void toolStripButton2_Click(object sender, EventArgs e)
         {
             if (undoStack.Count > 0)
             {
@@ -336,12 +371,185 @@ namespace comp
             }
         }
 
-        private void textBox1_TextChanged_1(object sender, EventArgs e)
+        private void открытьToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            ОткрытьФайл();
+        }
 
+        private void копироватьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(textBox1.SelectedText))
+            {
+                Clipboard.SetText(textBox1.SelectedText);
+
+            }
+        }
+
+        private void вырезатьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(textBox1.SelectedText))
+            {
+                Clipboard.SetText(textBox1.SelectedText);
+
+                int selectionStart = textBox1.SelectionStart;
+                string textBefore = textBox1.Text.Substring(0, selectionStart);
+                string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
+                textBox1.Text = textBefore + textAfter;
+
+                textBox1.SelectionStart = selectionStart;
+                textBox1.SelectionLength = 0;
+            }
+        }
+
+        private void отменитьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (undoStack.Count > 0)
+            {
+                string currentText = textBox1.Text;
+
+                string previousText = undoStack.Pop();
+
+                ignoreTextChanges = true;
+
+                redoStack.Push(currentText);
+
+                textBox1.Text = previousText;
+                textBox1.SelectionStart = textBox1.Text.Length;
+                textBox1.SelectionLength = 0;
+
+                ignoreTextChanges = false;
+            }
+        }
+
+        private void повторитьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (redoStack.Count > 0)
+            {
+                string redoText = redoStack.Pop();
+
+                undoStack.Push(textBox1.Text);
+
+                ignoreTextChanges = true;
+
+                textBox1.Text = redoText;
+                textBox1.SelectionStart = textBox1.Text.Length;
+                textBox1.SelectionLength = 0;
+
+                ignoreTextChanges = false;
+            }
+        }
+
+        private void вставитьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (Clipboard.ContainsText())
+            {
+                string clipboardText = Clipboard.GetText();
+
+                if (textBox1.SelectionLength > 0)
+                {
+                    int selectionStart = textBox1.SelectionStart;
+                    string textBefore = textBox1.Text.Substring(0, selectionStart);
+                    string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
+                    textBox1.Text = textBefore + clipboardText + textAfter;
+
+                    textBox1.SelectionStart = selectionStart + clipboardText.Length;
+                    textBox1.SelectionLength = 0;
+                }
+                else
+                {
+                    int cursorPosition = textBox1.SelectionStart;
+                    string textBefore = textBox1.Text.Substring(0, cursorPosition);
+                    string textAfter = textBox1.Text.Substring(cursorPosition);
+                    textBox1.Text = textBefore + clipboardText + textAfter;
+
+                    textBox1.SelectionStart = cursorPosition + clipboardText.Length;
+                    textBox1.SelectionLength = 0;
+                }
+            }
+        }
+
+        private void удалитьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            УдалитьТекст();
+        }
+
+        private void выделитьВсёToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ВыделитьВесьТекст();
+        }
+        private void УдалитьТекст()
+        {
+            // Проверяем, есть ли выделенный текст
+            if (textBox1.SelectionLength > 0)
+            {
+                // Сохраняем состояние для Undo
+                if (!ignoreTextChanges)
+                {
+                    undoStack.Push(textBox1.Text);
+                    redoStack.Clear();
+                }
+
+                // Удаляем выделенный текст
+                int selectionStart = textBox1.SelectionStart;
+                string textBefore = textBox1.Text.Substring(0, selectionStart);
+                string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
+
+                ignoreTextChanges = true;
+                textBox1.Text = textBefore + textAfter;
+                textBox1.SelectionStart = selectionStart;
+                textBox1.SelectionLength = 0;
+                ignoreTextChanges = false;
+            }
+        }
+
+        private void ВыделитьВесьТекст()
+        {
+            if (!string.IsNullOrEmpty(textBox1.Text))
+            {
+                textBox1.SelectionStart = 0;
+                textBox1.SelectionLength = textBox1.Text.Length;
+                textBox1.Focus();
+            }
+        }
+
+        private void вызовСправкиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string helpMessage =
+                "Реализованные функции:\n" +
+                "• Создать - создание нового файла\n" +
+                "• Открыть  - открытие существующего файла\n" +
+                "• Сохранить - сохранение текущего файла\n" +
+                "• Сохранить как - сохранение файла под новым именем\n" +
+                "• Выход - завершение работы\n" +
+                "• Отменить - отмена последнего действия\n" +
+                "• Повторить - повтор отмененного действия\n" +
+                "• Вырезать - вырезать выделенный текст\n" +
+                "• Копировать - копировать выделенный текст\n" +
+                "• Вставить - вставить текст из буфера\n" +
+                "• Удалить  - удалить выделенный текст\n" +
+                "• Выделить всё - выделить весь текст\n\n";
+
+            MessageBox.Show(helpMessage, "Справка",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void toolStripButton3_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show(
+                "Работу сделал Марченко А.Е. АП-326",
+                "Об авторе",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void оПрограммеToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show(
+                "Работу сделал Марченко А.Е. АП-326",
+                "Об авторе",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
     }
 }
-
-
-
