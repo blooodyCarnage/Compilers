@@ -244,12 +244,47 @@ namespace comp
 
         private void вставкаToolStripButton_Click(object sender, EventArgs e)
         {
+            if (Clipboard.ContainsText())
+            {
+                string clipboardText = Clipboard.GetText();
 
+                if (textBox1.SelectionLength > 0)
+                {
+                    int selectionStart = textBox1.SelectionStart;
+                    string textBefore = textBox1.Text.Substring(0, selectionStart);
+                    string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
+                    textBox1.Text = textBefore + clipboardText + textAfter;
+
+                    textBox1.SelectionStart = selectionStart + clipboardText.Length;
+                    textBox1.SelectionLength = 0;
+                }
+                else
+                {
+                    int cursorPosition = textBox1.SelectionStart;
+                    string textBefore = textBox1.Text.Substring(0, cursorPosition);
+                    string textAfter = textBox1.Text.Substring(cursorPosition);
+                    textBox1.Text = textBefore + clipboardText + textAfter;
+
+                    textBox1.SelectionStart = cursorPosition + clipboardText.Length;
+                    textBox1.SelectionLength = 0;
+                }
+            }
         }
 
         private void вырезатьToolStripButton_Click(object sender, EventArgs e)
         {
+            if (!string.IsNullOrEmpty(textBox1.SelectedText))
+            {
+                Clipboard.SetText(textBox1.SelectedText);
 
+                int selectionStart = textBox1.SelectionStart;
+                string textBefore = textBox1.Text.Substring(0, selectionStart);
+                string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
+                textBox1.Text = textBefore + textAfter;
+
+                textBox1.SelectionStart = selectionStart;
+                textBox1.SelectionLength = 0;
+            }
         }
 
         private void TextBox1_TextChanged(object sender, EventArgs e)
@@ -299,6 +334,11 @@ namespace comp
 
                 ignoreTextChanges = false;
             }
+        }
+
+        private void textBox1_TextChanged_1(object sender, EventArgs e)
+        {
+
         }
     }
 }
