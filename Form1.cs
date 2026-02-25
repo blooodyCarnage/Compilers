@@ -16,6 +16,10 @@ namespace comp
         private OpenFileDialog openFileDialog1;
         private SaveFileDialog saveFileDialog1;
         private string currentFileName = "";
+        private Stack<string> undoStack = new Stack<string>();
+        private Stack<string> redoStack = new Stack<string>();
+        private bool ignoreTextChanges = false;
+
 
         public Form1()
         {
@@ -26,7 +30,7 @@ namespace comp
 
             openFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             saveFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
-
+            textBox1.TextChanged += TextBox1_TextChanged;
             // Подписка на события
             InitializeEventHandlers();
         }
@@ -184,5 +188,120 @@ namespace comp
                 }
             }
         }
+
+        private void копироватьToolStripButton_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(textBox1.SelectedText))
+            {
+                Clipboard.SetText(textBox1.SelectedText);
+
+            }
+        }
+        private void выходToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DialogResult result = MessageBox.Show(
+                "Вы действительно хотите выйти из программы?",
+                "Подтверждение выхода",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                if (!string.IsNullOrEmpty(textBox1.Text))
+                {
+                    DialogResult saveResult = MessageBox.Show(
+                        "У вас есть несохраненные изменения. Сохранить перед выходом?",
+                        "Несохраненные изменения",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Warning);
+
+                    if (saveResult == DialogResult.Yes)
+                    {
+                        СохранитьФайл();
+                        Application.Exit();
+                    }
+                    else if (saveResult == DialogResult.No)
+                    {
+                        Application.Exit();
+                    }
+                }
+                else
+                {
+                    Application.Exit();
+                }
+            }
+        }
+
+        private void сохранитьКакToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void создатьToolStripButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void вставкаToolStripButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void вырезатьToolStripButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void TextBox1_TextChanged(object sender, EventArgs e)
+        {
+            if (ignoreTextChanges) return;
+
+            if (!string.IsNullOrEmpty(textBox1.Text))
+            {
+                undoStack.Push(textBox1.Text);
+                redoStack.Clear();
+            }
+        }
+
+        private void toolStripButton2_Click(object sender, EventArgs e) 
+        {
+            if (undoStack.Count > 0)
+            {
+                string currentText = textBox1.Text;
+
+                string previousText = undoStack.Pop();
+
+                ignoreTextChanges = true;
+
+                redoStack.Push(currentText);
+
+                textBox1.Text = previousText;
+                textBox1.SelectionStart = textBox1.Text.Length;
+                textBox1.SelectionLength = 0;
+
+                ignoreTextChanges = false;
+            }
+
+        }
+        private void Повтор_Click(object sender, EventArgs e)
+        {
+            if (redoStack.Count > 0)
+            {
+                string redoText = redoStack.Pop();
+
+                undoStack.Push(textBox1.Text);
+
+                ignoreTextChanges = true;
+
+                textBox1.Text = redoText;
+                textBox1.SelectionStart = textBox1.Text.Length;
+                textBox1.SelectionLength = 0;
+
+                ignoreTextChanges = false;
+            }
+        }
     }
 }
+
+
+
