@@ -19,7 +19,7 @@ namespace comp
         private Stack<string> undoStack = new Stack<string>();
         private Stack<string> redoStack = new Stack<string>();
         private bool ignoreTextChanges = false;
-
+        private LexicalAnalyzer analyzer = new LexicalAnalyzer();
 
         public Form1()
         {
@@ -31,6 +31,7 @@ namespace comp
             openFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             saveFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             textBox1.TextChanged += TextBox1_TextChanged;
+
             // Подписка на события
             InitializeEventHandlers();
         }
@@ -38,7 +39,7 @@ namespace comp
         private void InitializeEventHandlers()
         {
             if (сохранитьToolStripButton != null)
-                сохранитьToolStripButton.Click -= сохранитьToolStripButton_Click; // Отписываемся сначала
+                сохранитьToolStripButton.Click -= сохранитьToolStripButton_Click;
             сохранитьToolStripButton.Click += сохранитьToolStripButton_Click;
 
             if (открытьToolStripButton != null)
@@ -73,6 +74,7 @@ namespace comp
         {
             СоздатьНовыйФайл();
         }
+
         private void СоздатьНовыйФайл()
         {
             if (!string.IsNullOrEmpty(textBox1.Text))
@@ -119,7 +121,7 @@ namespace comp
                     File.WriteAllText(newFileName, "");
 
                     textBox1.Clear();
-
+                    dataGridViewResults.Rows.Clear();
                     currentFileName = newFileName;
 
                     MessageBox.Show($"Новый файл создан и сохранен как:\n{newFileName}",
@@ -132,6 +134,7 @@ namespace comp
                 }
             }
         }
+
         private void сохранитьToolStripMenuItem_Click(object sender, EventArgs e)
         {
             СохранитьФайл();
@@ -191,6 +194,7 @@ namespace comp
                     string fileText = File.ReadAllText(filename);
                     textBox1.Text = fileText;
                     currentFileName = filename;
+                    dataGridViewResults.Rows.Clear();
                     MessageBox.Show("Файл открыт", "Информация",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -229,9 +233,9 @@ namespace comp
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
             {
                 Clipboard.SetText(textBox1.SelectedText);
-
             }
         }
+
         private void выходToolStripMenuItem_Click(object sender, EventArgs e)
         {
             DialogResult result = MessageBox.Show(
@@ -269,7 +273,7 @@ namespace comp
 
         private void сохранитьКакToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            СохранитьФайл();
+            СохранитьКак();
         }
 
         private void создатьToolStripButton_Click(object sender, EventArgs e)
@@ -338,35 +342,28 @@ namespace comp
             if (undoStack.Count > 0)
             {
                 string currentText = textBox1.Text;
-
                 string previousText = undoStack.Pop();
 
                 ignoreTextChanges = true;
-
                 redoStack.Push(currentText);
-
                 textBox1.Text = previousText;
                 textBox1.SelectionStart = textBox1.Text.Length;
                 textBox1.SelectionLength = 0;
-
                 ignoreTextChanges = false;
             }
-
         }
+
         private void Повтор_Click(object sender, EventArgs e)
         {
             if (redoStack.Count > 0)
             {
                 string redoText = redoStack.Pop();
-
                 undoStack.Push(textBox1.Text);
 
                 ignoreTextChanges = true;
-
                 textBox1.Text = redoText;
                 textBox1.SelectionStart = textBox1.Text.Length;
                 textBox1.SelectionLength = 0;
-
                 ignoreTextChanges = false;
             }
         }
@@ -381,7 +378,6 @@ namespace comp
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
             {
                 Clipboard.SetText(textBox1.SelectedText);
-
             }
         }
 
@@ -406,17 +402,13 @@ namespace comp
             if (undoStack.Count > 0)
             {
                 string currentText = textBox1.Text;
-
                 string previousText = undoStack.Pop();
 
                 ignoreTextChanges = true;
-
                 redoStack.Push(currentText);
-
                 textBox1.Text = previousText;
                 textBox1.SelectionStart = textBox1.Text.Length;
                 textBox1.SelectionLength = 0;
-
                 ignoreTextChanges = false;
             }
         }
@@ -426,15 +418,12 @@ namespace comp
             if (redoStack.Count > 0)
             {
                 string redoText = redoStack.Pop();
-
                 undoStack.Push(textBox1.Text);
 
                 ignoreTextChanges = true;
-
                 textBox1.Text = redoText;
                 textBox1.SelectionStart = textBox1.Text.Length;
                 textBox1.SelectionLength = 0;
-
                 ignoreTextChanges = false;
             }
         }
@@ -477,6 +466,7 @@ namespace comp
         {
             ВыделитьВесьТекст();
         }
+
         private void УдалитьТекст()
         {
             if (textBox1.SelectionLength > 0)
@@ -512,9 +502,10 @@ namespace comp
         private void вызовСправкиToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string helpMessage =
+                "Лексический анализатор\n\n" +
                 "Реализованные функции:\n" +
                 "• Создать - создание нового файла\n" +
-                "• Открыть  - открытие существующего файла\n" +
+                "• Открыть - открытие существующего файла\n" +
                 "• Сохранить - сохранение текущего файла\n" +
                 "• Сохранить как - сохранение файла под новым именем\n" +
                 "• Выход - завершение работы\n" +
@@ -523,8 +514,9 @@ namespace comp
                 "• Вырезать - вырезать выделенный текст\n" +
                 "• Копировать - копировать выделенный текст\n" +
                 "• Вставить - вставить текст из буфера\n" +
-                "• Удалить  - удалить выделенный текст\n" +
-                "• Выделить всё - выделить весь текст\n\n";
+                "• Удалить - удалить выделенный текст\n" +
+                "• Выделить всё - выделить весь текст\n" +
+                "• Пуск - запуск лексического анализа\n\n";
 
             MessageBox.Show(helpMessage, "Справка",
                 MessageBoxButtons.OK,
@@ -543,32 +535,113 @@ namespace comp
         private void оПрограммеToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "Работу сделал Марченко А.Е. АП-326",
-                "Об авторе",
+                "Лексический анализатор\nВерсия 1.0\n\nРаботу сделал Марченко А.Е. АП-326",
+                "О программе",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
 
         private void toolStripButton2_Click_1(object sender, EventArgs e)
         {
-            string helpMessage =
-                "Реализованные функции:\n" +
-                "• Создать - создание нового файла\n" +
-                "• Открыть  - открытие существующего файла\n" +
-                "• Сохранить - сохранение текущего файла\n" +
-                "• Сохранить как - сохранение файла под новым именем\n" +
-                "• Выход - завершение работы\n" +
-                "• Отменить - отмена последнего действия\n" +
-                "• Повторить - повтор отмененного действия\n" +
-                "• Вырезать - вырезать выделенный текст\n" +
-                "• Копировать - копировать выделенный текст\n" +
-                "• Вставить - вставить текст из буфера\n" +
-                "• Удалить  - удалить выделенный текст\n" +
-                "• Выделить всё - выделить весь текст\n\n";
+            вызовСправкиToolStripMenuItem_Click(sender, e);
+        }
 
-            MessageBox.Show(helpMessage, "Справка",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+        private void запуск_Click(object sender, EventArgs e)
+        {
+            RunAnalysis();
+        }
+
+        private void RunAnalysis()
+        {
+            {
+                dataGridViewResults.Rows.Clear();
+
+                string inputText = textBox1.Text;
+
+                if (string.IsNullOrEmpty(inputText))
+                {
+                    MessageBox.Show("Введите текст для анализа", "Предупреждение",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                //Запуск 
+                var tokens = analyzer.Analyze(inputText);
+
+                // Заполнение таблицы 
+                bool hasErrors = false;
+                foreach (var token in tokens)
+                {
+                    string location;
+                    if (token.StartPos == token.EndPos)
+                    {
+                        location = $"строка {token.Line}, {token.StartPos + 1}";
+                    }
+                    else
+                    {
+                        location = $"строка {token.Line}, {token.StartPos + 1}-{token.EndPos + 1}";
+                    }
+
+                    int rowIndex = dataGridViewResults.Rows.Add(
+                        token.Code,
+                        token.Type,
+                        token.Value,
+                        location
+                    );
+
+                    if (token.IsError)
+                    {
+                        dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor = Color.LightCoral;
+                        hasErrors = true;
+                    }
+                }
+            }
+        }
+
+        private void dataGridViewResults_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                var row = dataGridViewResults.Rows[e.RowIndex];
+
+                string location = row.Cells["Location"].Value?.ToString();
+                if (!string.IsNullOrEmpty(location))
+                {
+                    try
+                    {
+                        string[] parts = location.Replace("строка ", "").Split(',');
+                        if (parts.Length == 2)
+                        {
+                            int line = int.Parse(parts[0].Trim());
+
+                            string posPart = parts[1].Trim();
+                            string[] positions = posPart.Split('-');
+
+                            int startPos = int.Parse(positions[0]) - 1;
+
+                            if (startPos >= 0 && startPos < textBox1.Text.Length)
+                            {
+                                textBox1.Focus();
+                                textBox1.SelectionStart = startPos;
+
+                                if (positions.Length == 2)
+                                {
+                                    int endPos = int.Parse(positions[1]) - 1;
+                                    textBox1.SelectionLength = endPos - startPos + 1;
+                                }
+                                else
+                                {
+                                    textBox1.SelectionLength = 1;
+                                }
+
+                                textBox1.ScrollToCaret();
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
         }
     }
 }
