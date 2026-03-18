@@ -8,16 +8,15 @@ namespace comp
 {
     public class LexicalAnalyzer
     {
-        // Типы лексем с их кодами
         public enum TokenType
         {
-            KEYWORD = 1,        // Ключевое слово
-            IDENTIFIER = 2,      // Идентификатор
-            NUMBER = 3,          // Число
-            OPERATOR = 4,        // Оператор
-            SEPARATOR = 5,       // Разделитель
-            WHITESPACE = 6,      // Пробельный символ
-            ERROR = 99           // Ошибка
+            KEYWORD = 1,        
+            IDENTIFIER = 2,      
+            NUMBER = 3,          
+            OPERATOR = 4,        
+            SEPARATOR = 5,       
+            WHITESPACE = 6,      
+            ERROR = 99           
         }
 
         // Ключевые слова языка
@@ -38,16 +37,15 @@ namespace comp
             ':', ';'
         };
 
-        // Результат анализа
         public class Token
         {
-            public int Code { get; set; }              // Условный код
-            public string Type { get; set; }            // Тип лексемы
-            public string Value { get; set; }           // Лексема
-            public int Line { get; set; }               // Номер строки
-            public int StartPos { get; set; }           // Начальная позиция
-            public int EndPos { get; set; }             // Конечная позиция
-            public bool IsError { get; set; }           // Является ли ошибкой
+            public int Code { get; set; }              
+            public string Type { get; set; }           
+            public string Value { get; set; }           
+            public int Line { get; set; }              
+            public int StartPos { get; set; }           
+            public int EndPos { get; set; }             
+            public bool IsError { get; set; }           
         }
 
         /// <summary>
@@ -66,7 +64,6 @@ namespace comp
             {
                 char currentChar = text[position];
 
-                // Пропускаем пробелы (но сохраняем их как отдельные лексемы для навигации)
                 if (char.IsWhiteSpace(currentChar))
                 {
                     if (currentChar == '\n')
@@ -79,7 +76,6 @@ namespace comp
                     continue;
                 }
 
-                // Проверяем на операторы
                 if (operators.Contains(currentChar))
                 {
                     // Проверяем на составной оператор ":="
@@ -96,7 +92,6 @@ namespace comp
                     continue;
                 }
 
-                // Проверяем на разделители
                 if (separators.Contains(currentChar))
                 {
                     tokens.Add(CreateToken(TokenType.SEPARATOR, currentChar.ToString(), lineNumber, position, position));
@@ -104,7 +99,6 @@ namespace comp
                     continue;
                 }
 
-                // Проверяем на цифры (числа)
                 if (char.IsDigit(currentChar))
                 {
                     string number = "";
@@ -120,7 +114,6 @@ namespace comp
                     continue;
                 }
 
-                // Проверяем на буквы (идентификаторы или ключевые слова)
                 if (char.IsLetter(currentChar) || currentChar == '_')
                 {
                     string identifier = "";
@@ -132,7 +125,6 @@ namespace comp
                         position++;
                     }
 
-                    // Проверяем, является ли идентификатор ключевым словом
                     if (keywords.Contains(identifier))
                     {
                         tokens.Add(CreateToken(TokenType.KEYWORD, identifier, lineNumber, startPos, position - 1));
@@ -144,7 +136,6 @@ namespace comp
                     continue;
                 }
 
-                // Если символ не распознан - ошибка
                 tokens.Add(CreateErrorToken(currentChar.ToString(), lineNumber, position, position));
                 position++;
             }
@@ -152,9 +143,6 @@ namespace comp
             return tokens;
         }
 
-        /// <summary>
-        /// Создание лексемы
-        /// </summary>
         private Token CreateToken(TokenType type, string value, int line, int start, int end)
         {
             string typeDescription = GetTypeDescription(type);
@@ -171,9 +159,6 @@ namespace comp
             };
         }
 
-        /// <summary>
-        /// Создание лексемы-ошибки
-        /// </summary>
         private Token CreateErrorToken(string value, int line, int start, int end)
         {
             return new Token
@@ -188,9 +173,6 @@ namespace comp
             };
         }
 
-        /// <summary>
-        /// Получение текстового описания типа лексемы
-        /// </summary>
         private string GetTypeDescription(TokenType type)
         {
             switch (type)
