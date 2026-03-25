@@ -596,52 +596,56 @@ namespace comp
                 }
             }
         }
-
+        /// Обработчик клика по таблице результатов
         private void dataGridViewResults_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
             {
                 var row = dataGridViewResults.Rows[e.RowIndex];
 
-                string location = row.Cells["Location"].Value?.ToString();
-                if (!string.IsNullOrEmpty(location))
+                if (dataGridViewResults.Columns.Count > 3)
                 {
-                    try
+                    string location = row.Cells[3].Value?.ToString(); 
+
+                    if (!string.IsNullOrEmpty(location))
                     {
-                        string[] parts = location.Replace("строка ", "").Split(',');
-                        if (parts.Length == 2)
+                        try
                         {
-                            int line = int.Parse(parts[0].Trim());
-
-                            string posPart = parts[1].Trim();
-                            string[] positions = posPart.Split('-');
-
-                            int startPos = int.Parse(positions[0]) - 1;
-
-                            if (startPos >= 0 && startPos < textBox1.Text.Length)
+                            // Парсим местоположение
+                            string[] parts = location.Replace("строка ", "").Split(',');
+                            if (parts.Length == 2)
                             {
-                                textBox1.Focus();
-                                textBox1.SelectionStart = startPos;
+                                string posPart = parts[1].Trim();
+                                string[] positions = posPart.Split('-');
 
-                                if (positions.Length == 2)
-                                {
-                                    int endPos = int.Parse(positions[1]) - 1;
-                                    textBox1.SelectionLength = endPos - startPos + 1;
-                                }
-                                else
-                                {
-                                    textBox1.SelectionLength = 1;
-                                }
+                                int startPos = int.Parse(positions[0]) - 1;
 
-                                textBox1.ScrollToCaret();
+                                if (startPos >= 0 && startPos < textBox1.Text.Length)
+                                {
+                                    textBox1.Focus();
+                                    textBox1.SelectionStart = startPos;
+
+                                    if (positions.Length == 2)
+                                    {
+                                        int endPos = int.Parse(positions[1]) - 1;
+                                        textBox1.SelectionLength = endPos - startPos + 1;
+                                    }
+                                    else
+                                    {
+                                        textBox1.SelectionLength = 1;
+                                    }
+
+                                    textBox1.ScrollToCaret();
+                                }
                             }
                         }
-                    }
-                    catch
-                    {
+                        catch
+                        {
+                        }
                     }
                 }
             }
         }
     }
 }
+            
