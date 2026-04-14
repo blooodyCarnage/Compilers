@@ -76,11 +76,11 @@ namespace comp
             switch (selected)
             {
                 case "Числа":
-                    return new Regex(@"-?\d+(?:\.\d+)?", RegexOptions.Compiled);
+                    return new Regex(@"(?<!\S)-?\d+(?:\.\d+)?(?!\S)", RegexOptions.Compiled);
                 case "Идентификаторы":
                     return new Regex(@"(?<!\S)[A-Za-z_$][A-Za-z0-9]*(?!\S)", RegexOptions.Compiled);
                 case "Время":
-                    return new Regex(@"\b(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\b", RegexOptions.Compiled);
+                    return new Regex(@"(?<!\S)(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?!\S)", RegexOptions.Compiled);
                 default:
                     return null;
             }
