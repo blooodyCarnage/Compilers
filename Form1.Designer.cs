@@ -13,8 +13,6 @@
             base.Dispose(disposing);
         }
 
-        #region Код, автоматически созданный конструктором форм Windows
-
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
@@ -56,10 +54,12 @@
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.menuStrip1.SuspendLayout();
-            this.toolStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewResults)).BeginInit();
-            this.SuspendLayout();
+            // Новые элементы для синтаксических ошибок
+            this.dataGridViewSyntaxErrors = new System.Windows.Forms.DataGridView();
+            this.ColumnFragment = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColumnLocation = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColumnDescription = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.labelErrorCount = new System.Windows.Forms.Label();
             // 
             // menuStrip1
             // 
@@ -364,8 +364,8 @@
             // 
             // textBox1
             // 
-            this.textBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.textBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.textBox1.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.textBox1.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
@@ -378,7 +378,7 @@
             // 
             // dataGridViewResults
             // 
-            this.dataGridViewResults.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            this.dataGridViewResults.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.dataGridViewResults.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dataGridViewResults.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
@@ -393,7 +393,7 @@
             this.dataGridViewResults.RowHeadersWidth = 51;
             this.dataGridViewResults.RowTemplate.Height = 24;
             this.dataGridViewResults.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dataGridViewResults.Size = new System.Drawing.Size(1232, 288);
+            this.dataGridViewResults.Size = new System.Drawing.Size(1232, 180);
             this.dataGridViewResults.TabIndex = 4;
             this.dataGridViewResults.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridViewResults_CellClick);
             // 
@@ -425,11 +425,60 @@
             this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
             this.dataGridViewTextBoxColumn4.Width = 125;
             // 
+            // dataGridViewSyntaxErrors
+            // 
+            this.dataGridViewSyntaxErrors.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.dataGridViewSyntaxErrors.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewSyntaxErrors.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.ColumnFragment,
+            this.ColumnLocation,
+            this.ColumnDescription});
+            this.dataGridViewSyntaxErrors.Location = new System.Drawing.Point(12, 420);
+            this.dataGridViewSyntaxErrors.MultiSelect = false;
+            this.dataGridViewSyntaxErrors.Name = "dataGridViewSyntaxErrors";
+            this.dataGridViewSyntaxErrors.RowHeadersVisible = false;
+            this.dataGridViewSyntaxErrors.RowTemplate.Height = 24;
+            this.dataGridViewSyntaxErrors.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.dataGridViewSyntaxErrors.Size = new System.Drawing.Size(1232, 150);
+            this.dataGridViewSyntaxErrors.TabIndex = 5;
+            // 
+            // ColumnFragment
+            // 
+            this.ColumnFragment.HeaderText = "Неверный фрагмент";
+            this.ColumnFragment.Name = "ColumnFragment";
+            this.ColumnFragment.Width = 200;
+            // 
+            // ColumnLocation
+            // 
+            this.ColumnLocation.HeaderText = "Местоположение";
+            this.ColumnLocation.Name = "ColumnLocation";
+            this.ColumnLocation.Width = 200;
+            // 
+            // ColumnDescription
+            // 
+            this.ColumnDescription.HeaderText = "Описание";
+            this.ColumnDescription.Name = "ColumnDescription";
+            this.ColumnDescription.Width = 500;
+            // 
+            // labelErrorCount
+            // 
+            this.labelErrorCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.labelErrorCount.AutoSize = true;
+            this.labelErrorCount.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
+            this.labelErrorCount.Location = new System.Drawing.Point(12, 580);
+            this.labelErrorCount.Name = "labelErrorCount";
+            this.labelErrorCount.Size = new System.Drawing.Size(211, 18);
+            this.labelErrorCount.TabIndex = 6;
+            this.labelErrorCount.Text = "Общее количество ошибок: 0";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1255, 548);
+            this.ClientSize = new System.Drawing.Size(1255, 620);
+            this.Controls.Add(this.labelErrorCount);
+            this.Controls.Add(this.dataGridViewSyntaxErrors);
             this.Controls.Add(this.dataGridViewResults);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.toolStrip1);
@@ -443,12 +492,10 @@
             this.toolStrip1.ResumeLayout(false);
             this.toolStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewResults)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewSyntaxErrors)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
-
-        #endregion
 
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem файлToolStripMenuItem;
@@ -488,5 +535,10 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn2;
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn3;
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn4;
+        private System.Windows.Forms.DataGridView dataGridViewSyntaxErrors;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnFragment;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnLocation;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnDescription;
+        private System.Windows.Forms.Label labelErrorCount;
     }
 }

@@ -1,13 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.IO;
+using System.Windows.Forms;
 
 namespace comp
 {
@@ -32,8 +26,9 @@ namespace comp
             saveFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             textBox1.TextChanged += TextBox1_TextChanged;
 
-            // Подписка на события
             InitializeEventHandlers();
+
+            dataGridViewSyntaxErrors.CellClick += DataGridViewSyntaxErrors_CellClick;
         }
 
         private void InitializeEventHandlers()
@@ -55,25 +50,11 @@ namespace comp
             создатьToolStripMenuItem.Click += создатьToolStripMenuItem_Click;
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
+        private void Form1_Load(object sender, EventArgs e) { }
 
-        }
-
-        private void сохранитьToolStripButton_Click(object sender, EventArgs e)
-        {
-            СохранитьФайл();
-        }
-
-        private void открытьToolStripButton_Click(object sender, EventArgs e)
-        {
-            ОткрытьФайл();
-        }
-
-        private void создатьToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            СоздатьНовыйФайл();
-        }
+        private void сохранитьToolStripButton_Click(object sender, EventArgs e) => СохранитьФайл();
+        private void открытьToolStripButton_Click(object sender, EventArgs e) => ОткрытьФайл();
+        private void создатьToolStripMenuItem_Click(object sender, EventArgs e) => СоздатьНовыйФайл();
 
         private void СоздатьНовыйФайл()
         {
@@ -122,6 +103,8 @@ namespace comp
 
                     textBox1.Clear();
                     dataGridViewResults.Rows.Clear();
+                    dataGridViewSyntaxErrors.Rows.Clear();
+                    labelErrorCount.Text = "Общее количество ошибок: 0";
                     currentFileName = newFileName;
 
                     MessageBox.Show($"Новый файл создан и сохранен как:\n{newFileName}",
@@ -135,10 +118,7 @@ namespace comp
             }
         }
 
-        private void сохранитьToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            СохранитьФайл();
-        }
+        private void сохранитьToolStripMenuItem_Click(object sender, EventArgs e) => СохранитьФайл();
 
         private void СохранитьФайл()
         {
@@ -195,6 +175,8 @@ namespace comp
                     textBox1.Text = fileText;
                     currentFileName = filename;
                     dataGridViewResults.Rows.Clear();
+                    dataGridViewSyntaxErrors.Rows.Clear();
+                    labelErrorCount.Text = "Общее количество ошибок: 0";
                     MessageBox.Show("Файл открыт", "Информация",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -231,9 +213,7 @@ namespace comp
         private void копироватьToolStripButton_Click(object sender, EventArgs e)
         {
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
-            {
                 Clipboard.SetText(textBox1.SelectedText);
-            }
         }
 
         private void выходToolStripMenuItem_Click(object sender, EventArgs e)
@@ -271,29 +251,20 @@ namespace comp
             }
         }
 
-        private void сохранитьКакToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            СохранитьКак();
-        }
-
-        private void создатьToolStripButton_Click(object sender, EventArgs e)
-        {
-            СоздатьНовыйФайл();
-        }
+        private void сохранитьКакToolStripMenuItem_Click(object sender, EventArgs e) => СохранитьКак();
+        private void создатьToolStripButton_Click(object sender, EventArgs e) => СоздатьНовыйФайл();
 
         private void вставкаToolStripButton_Click(object sender, EventArgs e)
         {
             if (Clipboard.ContainsText())
             {
                 string clipboardText = Clipboard.GetText();
-
                 if (textBox1.SelectionLength > 0)
                 {
                     int selectionStart = textBox1.SelectionStart;
                     string textBefore = textBox1.Text.Substring(0, selectionStart);
                     string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
                     textBox1.Text = textBefore + clipboardText + textAfter;
-
                     textBox1.SelectionStart = selectionStart + clipboardText.Length;
                     textBox1.SelectionLength = 0;
                 }
@@ -303,7 +274,6 @@ namespace comp
                     string textBefore = textBox1.Text.Substring(0, cursorPosition);
                     string textAfter = textBox1.Text.Substring(cursorPosition);
                     textBox1.Text = textBefore + clipboardText + textAfter;
-
                     textBox1.SelectionStart = cursorPosition + clipboardText.Length;
                     textBox1.SelectionLength = 0;
                 }
@@ -315,12 +285,10 @@ namespace comp
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
             {
                 Clipboard.SetText(textBox1.SelectedText);
-
                 int selectionStart = textBox1.SelectionStart;
                 string textBefore = textBox1.Text.Substring(0, selectionStart);
                 string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
                 textBox1.Text = textBefore + textAfter;
-
                 textBox1.SelectionStart = selectionStart;
                 textBox1.SelectionLength = 0;
             }
@@ -329,7 +297,6 @@ namespace comp
         private void TextBox1_TextChanged(object sender, EventArgs e)
         {
             if (ignoreTextChanges) return;
-
             if (!string.IsNullOrEmpty(textBox1.Text))
             {
                 undoStack.Push(textBox1.Text);
@@ -343,7 +310,6 @@ namespace comp
             {
                 string currentText = textBox1.Text;
                 string previousText = undoStack.Pop();
-
                 ignoreTextChanges = true;
                 redoStack.Push(currentText);
                 textBox1.Text = previousText;
@@ -359,7 +325,6 @@ namespace comp
             {
                 string redoText = redoStack.Pop();
                 undoStack.Push(textBox1.Text);
-
                 ignoreTextChanges = true;
                 textBox1.Text = redoText;
                 textBox1.SelectionStart = textBox1.Text.Length;
@@ -368,17 +333,12 @@ namespace comp
             }
         }
 
-        private void открытьToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ОткрытьФайл();
-        }
+        private void открытьToolStripMenuItem_Click(object sender, EventArgs e) => ОткрытьФайл();
 
         private void копироватьToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
-            {
                 Clipboard.SetText(textBox1.SelectedText);
-            }
         }
 
         private void вырезатьToolStripMenuItem_Click(object sender, EventArgs e)
@@ -386,12 +346,10 @@ namespace comp
             if (!string.IsNullOrEmpty(textBox1.SelectedText))
             {
                 Clipboard.SetText(textBox1.SelectedText);
-
                 int selectionStart = textBox1.SelectionStart;
                 string textBefore = textBox1.Text.Substring(0, selectionStart);
                 string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
                 textBox1.Text = textBefore + textAfter;
-
                 textBox1.SelectionStart = selectionStart;
                 textBox1.SelectionLength = 0;
             }
@@ -403,7 +361,6 @@ namespace comp
             {
                 string currentText = textBox1.Text;
                 string previousText = undoStack.Pop();
-
                 ignoreTextChanges = true;
                 redoStack.Push(currentText);
                 textBox1.Text = previousText;
@@ -419,7 +376,6 @@ namespace comp
             {
                 string redoText = redoStack.Pop();
                 undoStack.Push(textBox1.Text);
-
                 ignoreTextChanges = true;
                 textBox1.Text = redoText;
                 textBox1.SelectionStart = textBox1.Text.Length;
@@ -433,14 +389,12 @@ namespace comp
             if (Clipboard.ContainsText())
             {
                 string clipboardText = Clipboard.GetText();
-
                 if (textBox1.SelectionLength > 0)
                 {
                     int selectionStart = textBox1.SelectionStart;
                     string textBefore = textBox1.Text.Substring(0, selectionStart);
                     string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
                     textBox1.Text = textBefore + clipboardText + textAfter;
-
                     textBox1.SelectionStart = selectionStart + clipboardText.Length;
                     textBox1.SelectionLength = 0;
                 }
@@ -450,22 +404,14 @@ namespace comp
                     string textBefore = textBox1.Text.Substring(0, cursorPosition);
                     string textAfter = textBox1.Text.Substring(cursorPosition);
                     textBox1.Text = textBefore + clipboardText + textAfter;
-
                     textBox1.SelectionStart = cursorPosition + clipboardText.Length;
                     textBox1.SelectionLength = 0;
                 }
             }
         }
 
-        private void удалитьToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            УдалитьТекст();
-        }
-
-        private void выделитьВсёToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ВыделитьВесьТекст();
-        }
+        private void удалитьToolStripMenuItem_Click(object sender, EventArgs e) => УдалитьТекст();
+        private void выделитьВсёToolStripMenuItem_Click(object sender, EventArgs e) => ВыделитьВесьТекст();
 
         private void УдалитьТекст()
         {
@@ -476,11 +422,9 @@ namespace comp
                     undoStack.Push(textBox1.Text);
                     redoStack.Clear();
                 }
-
                 int selectionStart = textBox1.SelectionStart;
                 string textBefore = textBox1.Text.Substring(0, selectionStart);
                 string textAfter = textBox1.Text.Substring(selectionStart + textBox1.SelectionLength);
-
                 ignoreTextChanges = true;
                 textBox1.Text = textBefore + textAfter;
                 textBox1.SelectionStart = selectionStart;
@@ -516,7 +460,7 @@ namespace comp
                 "• Вставить - вставить текст из буфера\n" +
                 "• Удалить - удалить выделенный текст\n" +
                 "• Выделить всё - выделить весь текст\n" +
-                "• Пуск - запуск лексического анализа\n\n";
+                "• Пуск - запуск лексического и синтаксического анализа\n\n";
 
             MessageBox.Show(helpMessage, "Справка",
                 MessageBoxButtons.OK,
@@ -535,65 +479,67 @@ namespace comp
         private void оПрограммеToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "Лексический анализатор\nВерсия 1.0\n\nРаботу сделал Марченко А.Е. АП-326",
+                "Лексический анализатор\nВерсия 2.0 (с синтаксическим анализом)\n\nРаботу сделал Марченко А.Е. АП-326",
                 "О программе",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
 
-        private void toolStripButton2_Click_1(object sender, EventArgs e)
-        {
-            вызовСправкиToolStripMenuItem_Click(sender, e);
-        }
+        private void toolStripButton2_Click_1(object sender, EventArgs e) => вызовСправкиToolStripMenuItem_Click(sender, e);
 
-        private void запуск_Click(object sender, EventArgs e)
-        {
-            RunAnalysis();
-        }
+        private void запуск_Click(object sender, EventArgs e) => RunAnalysis();
 
         private void RunAnalysis()
         {
+            dataGridViewResults.Rows.Clear();
+            dataGridViewSyntaxErrors.Rows.Clear();
+            labelErrorCount.Text = "Общее количество ошибок: 0";
+
+            string inputText = textBox1.Text;
+            if (string.IsNullOrEmpty(inputText))
             {
-                dataGridViewResults.Rows.Clear();
+                MessageBox.Show("Введите текст для анализа", "Предупреждение",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-                string inputText = textBox1.Text;
+            var tokens = analyzer.Analyze(inputText);
 
-                if (string.IsNullOrEmpty(inputText))
+            bool hasErrors = false;
+            foreach (var token in tokens)
+            {
+                string location;
+                if (token.StartPos == token.EndPos)
+                    location = $"строка {token.Line}, {token.StartPos + 1}";
+                else
+                    location = $"строка {token.Line}, {token.StartPos + 1}-{token.EndPos + 1}";
+
+                int rowIndex = dataGridViewResults.Rows.Add(
+                    token.Code,
+                    token.Type,
+                    token.Value,
+                    location
+                );
+                if (token.IsError)
                 {
-                    MessageBox.Show("Введите текст для анализа", "Предупреждение",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor = System.Drawing.Color.LightCoral;
+                    hasErrors = true;
                 }
-                //Запуск 
-                var tokens = analyzer.Analyze(inputText);
+            }
 
-                // Заполнение таблицы 
-                bool hasErrors = false;
-                foreach (var token in tokens)
-                {
-                    string location;
-                    if (token.StartPos == token.EndPos)
-                    {
-                        location = $"строка {token.Line}, {token.StartPos + 1}";
-                    }
-                    else
-                    {
-                        location = $"строка {token.Line}, {token.StartPos + 1}-{token.EndPos + 1}";
-                    }
+            var syntaxAnalyzer = new SyntaxAnalyzer(tokens);
+            var syntaxErrors = syntaxAnalyzer.Parse();
 
-                    int rowIndex = dataGridViewResults.Rows.Add(
-                        token.Code,
-                        token.Type,
-                        token.Value,
-                        location
-                    );
+            foreach (var err in syntaxErrors)
+            {
+                dataGridViewSyntaxErrors.Rows.Add(err.Fragment, err.Location, err.Description);
+            }
+            labelErrorCount.Text = $"Общее количество ошибок: {syntaxErrors.Count}";
 
-                    if (token.IsError)
-                    {
-                        dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor = Color.LightCoral;
-                        hasErrors = true;
-                    }
-                }
+            if (syntaxErrors.Count == 0)
+            {
+                MessageBox.Show("Синтаксических ошибок не обнаружено.", "Результат анализа",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -602,7 +548,6 @@ namespace comp
             if (e.RowIndex >= 0)
             {
                 var row = dataGridViewResults.Rows[e.RowIndex];
-
                 string location = row.Cells["Location"].Value?.ToString();
                 if (!string.IsNullOrEmpty(location))
                 {
@@ -612,17 +557,13 @@ namespace comp
                         if (parts.Length == 2)
                         {
                             int line = int.Parse(parts[0].Trim());
-
                             string posPart = parts[1].Trim();
                             string[] positions = posPart.Split('-');
-
                             int startPos = int.Parse(positions[0]) - 1;
-
                             if (startPos >= 0 && startPos < textBox1.Text.Length)
                             {
                                 textBox1.Focus();
                                 textBox1.SelectionStart = startPos;
-
                                 if (positions.Length == 2)
                                 {
                                     int endPos = int.Parse(positions[1]) - 1;
@@ -632,14 +573,41 @@ namespace comp
                                 {
                                     textBox1.SelectionLength = 1;
                                 }
-
                                 textBox1.ScrollToCaret();
                             }
                         }
                     }
-                    catch
+                    catch { }
+                }
+            }
+        }
+
+        private void DataGridViewSyntaxErrors_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                var row = dataGridViewSyntaxErrors.Rows[e.RowIndex];
+                string location = row.Cells["ColumnLocation"].Value?.ToString(); // исправлено
+                if (!string.IsNullOrEmpty(location))
+                {
+                    try
                     {
+                        string[] parts = location.Replace("строка ", "").Split(',');
+                        if (parts.Length == 2)
+                        {
+                            int line = int.Parse(parts[0].Trim());
+                            string posPart = parts[1].Trim().Replace("позиция ", "");
+                            int startPos = int.Parse(posPart) - 1;
+                            if (startPos >= 0 && startPos < textBox1.Text.Length)
+                            {
+                                textBox1.Focus();
+                                textBox1.SelectionStart = startPos;
+                                textBox1.SelectionLength = 1;
+                                textBox1.ScrollToCaret();
+                            }
+                        }
                     }
+                    catch { }
                 }
             }
         }
