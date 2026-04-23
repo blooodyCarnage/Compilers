@@ -360,7 +360,8 @@ DECLARE product_price CONSTANT INTEGER := 150;
 
 
 
-<img width="423" height="110" alt="image" src="https://github.com/user-attachments/assets/53fd6a2b-893c-48ba-8862-51e12b8940e4" />
+<img width="411" height="164" alt="image" src="https://github.com/user-attachments/assets/a5ed3f4d-9a37-4dc6-a032-69f256d7a524" />
+
 
 
 
@@ -391,7 +392,8 @@ DECLARE product_price CONSTANT INTEGER := 150;
 
 Диаграмма состояний: 
 
-<img width="576" height="1138" alt="status drawio" src="https://github.com/user-attachments/assets/f2d79c25-ac4a-4528-9568-1d9f805953bc" />
+<img width="625" height="1138" alt="status drawio" src="https://github.com/user-attachments/assets/6d6f9fe1-39d1-43aa-a009-e3f2094cbc17" />
+
 
 
 
