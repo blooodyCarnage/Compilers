@@ -560,7 +560,8 @@ DECLARE product_price CONSTANT INTEGER := 150;
 
 ### Дополнительное задание
 Построить РВ для поиска идентификатора, который может начинаться только с буквы a-zA-Z, знака доллара $ или подчеркивания _, оставшаяся часть символов идентификатора представляют собой только буквы a-zA-Z или цифры.
-<img width="399" height="161" alt="graf4" src="https://github.com/user-attachments/assets/168f19e6-1d75-44af-b3ee-c667ca4e1123" />
+<img width="399" height="161" alt="graf4" src="https://github.com/user-attachments/assets/1ddd1b31-1012-4ab1-b601-f47711b8e665" />
+
 
 
 
