@@ -7,16 +7,44 @@ namespace comp
     {
         private List<LexicalAnalyzer.Token> tokens;
         private int currentPos;
+        private int currentLineEnd;
+        private int currentLineNumber;
         private List<SyntaxError> errors;
 
         public SyntaxAnalyzer(List<LexicalAnalyzer.Token> tokens)
         {
             this.tokens = tokens;
             currentPos = 0;
+            currentLineEnd = 0;
+            currentLineNumber = 1;
             errors = new List<SyntaxError>();
         }
 
         public List<SyntaxError> Parse()
+        {
+            while (currentPos < tokens.Count)
+            {
+                currentLineNumber = tokens[currentPos].Line;
+                currentLineEnd = FindLineEnd(currentPos);
+
+                int startPos = currentPos;
+
+                ParseDeclaration();
+
+                if (currentPos < currentLineEnd)
+                {
+                    AddError("конец объявления", CurrentToken());
+                    currentPos = currentLineEnd;
+                }
+
+                if (currentPos == startPos)
+                    currentPos++;
+            }
+
+            return errors;
+        }
+
+        private void ParseDeclaration()
         {
             MatchKeyword("DECLARE", NextAfter_DECLARE);
             MatchIdentifier();
@@ -25,13 +53,17 @@ namespace comp
             MatchOperator(":=");
             MatchNumber();
             MatchSemicolon();
+        }
 
-            if (currentPos < tokens.Count)
-            {
-                AddError("конец объявления", CurrentToken());
-            }
+        private int FindLineEnd(int start)
+        {
+            int line = tokens[start].Line;
+            int pos = start;
 
-            return errors;
+            while (pos < tokens.Count && tokens[pos].Line == line)
+                pos++;
+
+            return pos;
         }
 
         private void MatchKeyword(string expected, Func<LexicalAnalyzer.Token, bool> isNextElement)
@@ -44,7 +76,7 @@ namespace comp
 
             AddError($"'{expected}'", CurrentToken());
 
-            if (currentPos >= tokens.Count)
+            if (currentPos >= currentLineEnd)
                 return;
 
             var current = CurrentToken();
@@ -54,10 +86,9 @@ namespace comp
                 currentPos++;
                 return;
             }
+
             if (isNextElement(current))
-            {
                 return;
-            }
 
             currentPos++;
         }
@@ -72,7 +103,7 @@ namespace comp
 
             AddError("идентификатор", CurrentToken());
 
-            if (currentPos >= tokens.Count)
+            if (currentPos >= currentLineEnd)
                 return;
 
             if (IsKeyword("CONSTANT"))
@@ -91,10 +122,10 @@ namespace comp
 
             AddError($"'{expected}'", CurrentToken());
 
-            if (currentPos >= tokens.Count)
+            if (currentPos >= currentLineEnd)
                 return;
 
-            if (IsNumber())
+            if (IsNumber() || IsMinus())
                 return;
 
             if (CurrentToken().Code == (int)LexicalAnalyzer.TokenType.OPERATOR)
@@ -116,9 +147,31 @@ namespace comp
                 return;
             }
 
+            if (IsMinus())
+            {
+                currentPos++;
+
+                if (IsNumber())
+                {
+                    currentPos++;
+                    return;
+                }
+
+                AddError("число после '-'", CurrentToken());
+
+                if (currentPos >= currentLineEnd)
+                    return;
+
+                if (IsSemicolon())
+                    return;
+
+                SkipUntil(t => t.Value == ";");
+                return;
+            }
+
             AddError("число", CurrentToken());
 
-            if (currentPos >= tokens.Count)
+            if (currentPos >= currentLineEnd)
                 return;
 
             if (IsSemicolon())
@@ -137,7 +190,7 @@ namespace comp
 
             AddError("';'", CurrentToken());
 
-            if (currentPos >= tokens.Count)
+            if (currentPos >= currentLineEnd)
                 return;
 
             SkipUntil(t => t.Value == ";");
@@ -224,7 +277,7 @@ namespace comp
 
         private bool IsKeyword(string expected)
         {
-            if (currentPos >= tokens.Count) return false;
+            if (currentPos >= currentLineEnd) return false;
 
             var t = tokens[currentPos];
             if (t.IsError) return false;
@@ -235,7 +288,7 @@ namespace comp
 
         private bool IsIdentifier()
         {
-            if (currentPos >= tokens.Count) return false;
+            if (currentPos >= currentLineEnd) return false;
 
             var t = tokens[currentPos];
             if (t.IsError) return false;
@@ -245,7 +298,7 @@ namespace comp
 
         private bool IsOperator(string expected)
         {
-            if (currentPos >= tokens.Count) return false;
+            if (currentPos >= currentLineEnd) return false;
 
             var t = tokens[currentPos];
             if (t.IsError) return false;
@@ -256,17 +309,26 @@ namespace comp
 
         private bool IsNumber()
         {
-            if (currentPos >= tokens.Count) return false;
+            if (currentPos >= currentLineEnd) return false;
 
             var t = tokens[currentPos];
             if (t.IsError) return false;
 
             return t.Code == (int)LexicalAnalyzer.TokenType.NUMBER;
         }
+        private bool IsMinus()
+        {
+            if (currentPos >= currentLineEnd) return false;
 
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
+                   t.Value == "-";
+        }
         private bool IsSemicolon()
         {
-            if (currentPos >= tokens.Count) return false;
+            if (currentPos >= currentLineEnd) return false;
 
             var t = tokens[currentPos];
             if (t.IsError) return false;
@@ -285,7 +347,7 @@ namespace comp
 
         private void SkipUntil(Func<LexicalAnalyzer.Token, bool> stopCondition)
         {
-            while (currentPos < tokens.Count && !stopCondition(tokens[currentPos]))
+            while (currentPos < currentLineEnd && !stopCondition(tokens[currentPos]))
             {
                 currentPos++;
             }
@@ -293,7 +355,7 @@ namespace comp
 
         private LexicalAnalyzer.Token CurrentToken()
         {
-            return currentPos < tokens.Count ? tokens[currentPos] : null;
+            return currentPos < currentLineEnd ? tokens[currentPos] : null;
         }
 
         private void AddError(string expected, LexicalAnalyzer.Token currentToken)
@@ -302,7 +364,7 @@ namespace comp
 
             string location = currentToken != null
                 ? $"строка {currentToken.Line}, позиция {currentToken.StartPos + 1}"
-                : "конец файла";
+                : $"строка {currentLineNumber}, конец строки";
 
             string description = $"Ожидалось {expected}, найдено '{fragment}'";
 

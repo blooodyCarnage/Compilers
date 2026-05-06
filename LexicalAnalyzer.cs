@@ -135,8 +135,8 @@ namespace comp
                 Type = GetTypeDescription(type),
                 Value = value,
                 Line = line,
-                StartPos = start,
-                EndPos = end,
+                    StartPos = start,
+                    EndPos = end,
                 IsError = false
             };
         }
