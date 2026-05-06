@@ -13,6 +13,7 @@ namespace comp
         private Stack<string> undoStack = new Stack<string>();
         private Stack<string> redoStack = new Stack<string>();
         private bool ignoreTextChanges = false;
+        private string lastTextState = "";
         private LexicalAnalyzer analyzer = new LexicalAnalyzer();
 
         public Form1()
@@ -25,6 +26,7 @@ namespace comp
             openFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             saveFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             textBox1.TextChanged += TextBox1_TextChanged;
+            lastTextState = textBox1.Text;
 
             InitializeEventHandlers();
 
@@ -102,6 +104,7 @@ namespace comp
                     File.WriteAllText(newFileName, "");
 
                     textBox1.Clear();
+                    ResetUndoRedoHistory();
                     dataGridViewResults.Rows.Clear();
                     dataGridViewSyntaxErrors.Rows.Clear();
                     labelErrorCount.Text = "Общее количество ошибок: 0";
@@ -173,6 +176,7 @@ namespace comp
                     string filename = openFileDialog1.FileName;
                     string fileText = File.ReadAllText(filename);
                     textBox1.Text = fileText;
+                    ResetUndoRedoHistory();
                     currentFileName = filename;
                     dataGridViewResults.Rows.Clear();
                     dataGridViewSyntaxErrors.Rows.Clear();
@@ -296,41 +300,23 @@ namespace comp
 
         private void TextBox1_TextChanged(object sender, EventArgs e)
         {
-            if (ignoreTextChanges) return;
-            if (!string.IsNullOrEmpty(textBox1.Text))
-            {
-                undoStack.Push(textBox1.Text);
-                redoStack.Clear();
-            }
+            if (ignoreTextChanges)
+                return;
+
+            undoStack.Push(lastTextState);
+            lastTextState = textBox1.Text;
+
+            redoStack.Clear();
         }
 
         private void toolStripButton2_Click(object sender, EventArgs e)
         {
-            if (undoStack.Count > 0)
-            {
-                string currentText = textBox1.Text;
-                string previousText = undoStack.Pop();
-                ignoreTextChanges = true;
-                redoStack.Push(currentText);
-                textBox1.Text = previousText;
-                textBox1.SelectionStart = textBox1.Text.Length;
-                textBox1.SelectionLength = 0;
-                ignoreTextChanges = false;
-            }
+            UndoText();
         }
 
         private void Повтор_Click(object sender, EventArgs e)
         {
-            if (redoStack.Count > 0)
-            {
-                string redoText = redoStack.Pop();
-                undoStack.Push(textBox1.Text);
-                ignoreTextChanges = true;
-                textBox1.Text = redoText;
-                textBox1.SelectionStart = textBox1.Text.Length;
-                textBox1.SelectionLength = 0;
-                ignoreTextChanges = false;
-            }
+            RedoText();
         }
 
         private void открытьToolStripMenuItem_Click(object sender, EventArgs e) => ОткрытьФайл();
@@ -357,31 +343,55 @@ namespace comp
 
         private void отменитьToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (undoStack.Count > 0)
-            {
-                string currentText = textBox1.Text;
-                string previousText = undoStack.Pop();
-                ignoreTextChanges = true;
-                redoStack.Push(currentText);
-                textBox1.Text = previousText;
-                textBox1.SelectionStart = textBox1.Text.Length;
-                textBox1.SelectionLength = 0;
-                ignoreTextChanges = false;
-            }
+            UndoText();
         }
 
         private void повторитьToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (redoStack.Count > 0)
-            {
-                string redoText = redoStack.Pop();
-                undoStack.Push(textBox1.Text);
-                ignoreTextChanges = true;
-                textBox1.Text = redoText;
-                textBox1.SelectionStart = textBox1.Text.Length;
-                textBox1.SelectionLength = 0;
-                ignoreTextChanges = false;
-            }
+            RedoText();
+        }
+        private void UndoText()
+        {
+            if (undoStack.Count == 0)
+                return;
+
+            string currentText = textBox1.Text;
+            string previousText = undoStack.Pop();
+
+            redoStack.Push(currentText);
+
+            ignoreTextChanges = true;
+            textBox1.Text = previousText;
+            textBox1.SelectionStart = textBox1.Text.Length;
+            textBox1.SelectionLength = 0;
+            ignoreTextChanges = false;
+
+            lastTextState = previousText;
+        }
+
+        private void RedoText()
+        {
+            if (redoStack.Count == 0)
+                return;
+
+            string currentText = textBox1.Text;
+            string redoText = redoStack.Pop();
+
+            undoStack.Push(currentText);
+
+            ignoreTextChanges = true;
+            textBox1.Text = redoText;
+            textBox1.SelectionStart = textBox1.Text.Length;
+            textBox1.SelectionLength = 0;
+            ignoreTextChanges = false;
+
+            lastTextState = redoText;
+        }
+        private void ResetUndoRedoHistory()
+        {
+            undoStack.Clear();
+            redoStack.Clear();
+            lastTextState = textBox1.Text;
         }
 
         private void вставитьToolStripMenuItem_Click(object sender, EventArgs e)
@@ -545,49 +555,79 @@ namespace comp
 
         private void dataGridViewResults_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (e.RowIndex < 0)
+                return;
+
+            var row = dataGridViewResults.Rows[e.RowIndex];
+            string location = row.Cells[3].Value?.ToString();
+
+            if (string.IsNullOrEmpty(location))
+                return;
+
+            try
             {
-                var row = dataGridViewResults.Rows[e.RowIndex];
-                string location = row.Cells["Location"].Value?.ToString();
-                if (!string.IsNullOrEmpty(location))
-                {
-                    try
-                    {
-                        string[] parts = location.Replace("строка ", "").Split(',');
-                        if (parts.Length == 2)
-                        {
-                            int line = int.Parse(parts[0].Trim());
-                            string posPart = parts[1].Trim();
-                            string[] positions = posPart.Split('-');
-                            int startPos = int.Parse(positions[0]) - 1;
-                            if (startPos >= 0 && startPos < textBox1.Text.Length)
-                            {
-                                textBox1.Focus();
-                                textBox1.SelectionStart = startPos;
-                                if (positions.Length == 2)
-                                {
-                                    int endPos = int.Parse(positions[1]) - 1;
-                                    textBox1.SelectionLength = endPos - startPos + 1;
-                                }
-                                else
-                                {
-                                    textBox1.SelectionLength = 1;
-                                }
-                                textBox1.ScrollToCaret();
-                            }
-                        }
-                    }
-                    catch { }
-                }
+                string[] parts = location.Replace("строка ", "").Split(',');
+
+                if (parts.Length != 2)
+                    return;
+
+                int line = int.Parse(parts[0].Trim());
+
+                string posPart = parts[1].Trim();
+                string[] positions = posPart.Split('-');
+
+                int startPosInLine = int.Parse(positions[0]) - 1;
+                int endPosInLine = startPosInLine;
+
+                if (positions.Length == 2)
+                    endPosInLine = int.Parse(positions[1]) - 1;
+
+                int absoluteStart = GetAbsoluteTextBoxIndex(line, startPosInLine);
+                int absoluteEnd = GetAbsoluteTextBoxIndex(line, endPosInLine);
+
+                if (absoluteStart < 0 || absoluteStart >= textBox1.Text.Length)
+                    return;
+
+                int selectionLength = absoluteEnd - absoluteStart + 1;
+
+                if (selectionLength < 1)
+                    selectionLength = 1;
+
+                textBox1.Focus();
+                textBox1.SelectionStart = absoluteStart;
+                textBox1.SelectionLength = selectionLength;
+                textBox1.ScrollToCaret();
+            }
+            catch
+            {
             }
         }
+        private int GetAbsoluteTextBoxIndex(int lineNumber, int positionInLine)
+        {
+            if (lineNumber < 1 || positionInLine < 0)
+                return -1;
 
+            string[] lines = textBox1.Lines;
+
+            if (lineNumber > lines.Length)
+                return -1;
+
+            int index = 0;
+
+            for (int i = 0; i < lineNumber - 1; i++)
+            {
+                index += lines[i].Length;
+                index += Environment.NewLine.Length;
+            }
+
+            return index + positionInLine;
+        }
         private void DataGridViewSyntaxErrors_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex >= 0)
             {
                 var row = dataGridViewSyntaxErrors.Rows[e.RowIndex];
-                string location = row.Cells["ColumnLocation"].Value?.ToString(); // исправлено
+                string location = row.Cells["ColumnLocation"].Value?.ToString();
                 if (!string.IsNullOrEmpty(location))
                 {
                     try

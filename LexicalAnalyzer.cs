@@ -12,7 +12,6 @@ namespace comp
             NUMBER = 3,
             OPERATOR = 4,
             SEPARATOR = 5,
-            WHITESPACE = 6,
             ERROR = 99
         }
 
@@ -20,9 +19,6 @@ namespace comp
         {
             "DECLARE", "CONSTANT", "INTEGER"
         };
-
-        private readonly HashSet<char> operators = new HashSet<char> { '=', '+', '-' };
-        private readonly HashSet<char> separators = new HashSet<char> { ':', ';' };
 
         public class Token
         {
@@ -38,79 +34,94 @@ namespace comp
         public List<Token> Analyze(string text)
         {
             var tokens = new List<Token>();
-            int lineNumber = 1;
-            int position = 0;
-            int lineStartPos = 0;
+            int line = 1;
+            int pos = 0;
 
-            while (position < text.Length)
+            while (pos < text.Length)
             {
-                char currentChar = text[position];
+                char ch = text[pos];
 
-                if (char.IsWhiteSpace(currentChar))
+                if (char.IsWhiteSpace(ch))
                 {
-                    if (currentChar == '\n')
-                    {
-                        lineNumber++;
-                        lineStartPos = position + 1;
-                    }
-                    position++;
+                    if (ch == '\n') line++;
+                    pos++;
                     continue;
                 }
 
-                if (operators.Contains(currentChar) || currentChar == ':')
+                if (ch == ':' && pos + 1 < text.Length && text[pos + 1] == '=')
                 {
-                    if (currentChar == ':' && position + 1 < text.Length && text[position + 1] == '=')
+                    tokens.Add(CreateToken(TokenType.OPERATOR, ":=", line, pos, pos + 1));
+                    pos += 2;
+                    continue;
+                }
+
+                if (ch == ':')
+                {
+                    int start = pos;
+                    string err = "";
+                    while (pos < text.Length && !char.IsWhiteSpace(text[pos]) && text[pos] != ';')
                     {
-                        tokens.Add(CreateToken(TokenType.OPERATOR, ":=", lineNumber, position, position + 1));
-                        position += 2;
-                        continue;
+                        err += text[pos];
+                        pos++;
                     }
+                    tokens.Add(CreateErrorToken(err, line, start, pos - 1));
+                    continue;
+                }
+
+                if (ch == ';')
+                {
+                    tokens.Add(CreateToken(TokenType.SEPARATOR, ";", line, pos, pos));
+                    pos++;
+                    continue;
+                }
+                if (ch == '=' || ch == '+' || ch == '-')
+                {
+                    tokens.Add(CreateToken(TokenType.OPERATOR, ch.ToString(), line, pos, pos));
+                    pos++;
+                    continue;
+                }
+
+                if (char.IsDigit(ch))
+                {
+                    int start = pos;
+                    while (pos < text.Length && char.IsDigit(text[pos])) pos++;
+                    string val = text.Substring(start, pos - start);
+                    tokens.Add(CreateToken(TokenType.NUMBER, val, line, start, pos - 1));
+                    continue;
+                }
+
+                if (char.IsLetter(ch) || ch == '_')
+                {
+                    int start = pos;
+                    string word = "";
+                    while (pos < text.Length && (char.IsLetterOrDigit(text[pos]) || text[pos] == '_'))
+                    {
+                        word += text[pos];
+                        pos++;
+                    }
+                    if (pos < text.Length)
+                    {
+                        char next = text[pos];
+                        if (!char.IsWhiteSpace(next) && next != ';' && next != ':' && next != '=' && next != '+' && next != '-')
+                        {
+                            while (pos < text.Length && !char.IsWhiteSpace(text[pos]) && text[pos] != ';' && text[pos] != ':' && text[pos] != '=' && text[pos] != '+' && text[pos] != '-')
+                            {
+                                word += text[pos];
+                                pos++;
+                            }
+                            tokens.Add(CreateErrorToken(word, line, start, pos - 1));
+                            continue;
+                        }
+                    }
+                    if (keywords.Contains(word))
+                        tokens.Add(CreateToken(TokenType.KEYWORD, word, line, start, pos - 1));
                     else
-                    {
-                        tokens.Add(CreateToken(TokenType.OPERATOR, currentChar.ToString(), lineNumber, position, position));
-                        position++;
-                        continue;
-                    }
-                }
-
-                if (separators.Contains(currentChar))
-                {
-                    tokens.Add(CreateToken(TokenType.SEPARATOR, currentChar.ToString(), lineNumber, position, position));
-                    position++;
+                        tokens.Add(CreateToken(TokenType.IDENTIFIER, word, line, start, pos - 1));
                     continue;
                 }
 
-                if (char.IsDigit(currentChar))
-                {
-                    int startPos = position;
-                    string number = "";
-                    while (position < text.Length && char.IsDigit(text[position]))
-                    {
-                        number += text[position];
-                        position++;
-                    }
-                    tokens.Add(CreateToken(TokenType.NUMBER, number, lineNumber, startPos, position - 1));
-                    continue;
-                }
-
-                if (char.IsLetter(currentChar) || currentChar == '_')
-                {
-                    int startPos = position;
-                    string identifier = "";
-                    while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_'))
-                    {
-                        identifier += text[position];
-                        position++;
-                    }
-                    if (keywords.Contains(identifier))
-                        tokens.Add(CreateToken(TokenType.KEYWORD, identifier, lineNumber, startPos, position - 1));
-                    else
-                        tokens.Add(CreateToken(TokenType.IDENTIFIER, identifier, lineNumber, startPos, position - 1));
-                    continue;
-                }
-
-                tokens.Add(CreateErrorToken(currentChar.ToString(), lineNumber, position, position));
-                position++;
+                tokens.Add(CreateErrorToken(ch.ToString(), line, pos, pos));
+                pos++;
             }
 
             return tokens;
@@ -135,7 +146,7 @@ namespace comp
             return new Token
             {
                 Code = (int)TokenType.ERROR,
-                Type = "Ошибка: недопустимый символ",
+                Type = "Ошибка",
                 Value = value,
                 Line = line,
                 StartPos = start,
@@ -153,7 +164,6 @@ namespace comp
                 case TokenType.NUMBER: return "Число";
                 case TokenType.OPERATOR: return "Оператор";
                 case TokenType.SEPARATOR: return "Разделитель";
-                case TokenType.WHITESPACE: return "Пробел";
                 default: return "Неизвестный тип";
             }
         }

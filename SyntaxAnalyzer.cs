@@ -18,166 +18,294 @@ namespace comp
 
         public List<SyntaxError> Parse()
         {
-            ExpectKeyword("DECLARE");
-            ExpectIdentifier();
-            ExpectKeyword("CONSTANT");
-            ExpectKeyword("INTEGER");
-            bool operatorOk = ExpectOperator(":=");
-            if (operatorOk)
-            {
-                ExpectNumber();
-            }
-            else
-            {
-                SkipToSemicolonWithNumberError();
-            }
-            ExpectSemicolon();
+            MatchKeyword("DECLARE", NextAfter_DECLARE);
+            MatchIdentifier();
+            MatchKeyword("CONSTANT", NextAfter_CONSTANT);
+            MatchKeyword("INTEGER", NextAfter_INTEGER);
+            MatchOperator(":=");
+            MatchNumber();
+            MatchSemicolon();
 
             if (currentPos < tokens.Count)
             {
-                var extraToken = tokens[currentPos];
-                errors.Add(new SyntaxError
-                {
-                    Fragment = extraToken.Value,
-                    Location = $"строка {extraToken.Line}, позиция {extraToken.StartPos + 1}",
-                    Description = "Лишний текст после объявления"
-                });
+                AddError("конец объявления", CurrentToken());
             }
+
             return errors;
         }
 
-        private bool ExpectKeyword(string expectedValue)
+        private void MatchKeyword(string expected, Func<LexicalAnalyzer.Token, bool> isNextElement)
         {
-            if (currentPos >= tokens.Count)
-            {
-                AddError($"'{expectedValue}'", null);
-                return false;
-            }
-            var token = tokens[currentPos];
-            if (token.Code == (int)LexicalAnalyzer.TokenType.KEYWORD &&
-                string.Equals(token.Value, expectedValue, StringComparison.OrdinalIgnoreCase))
+            if (IsKeyword(expected))
             {
                 currentPos++;
-                return true;
-            }
-            else
-            {
-                AddError($"'{expectedValue}'", token);
-                currentPos++;
-                return false;
-            }
-        }
-
-        private bool ExpectIdentifier()
-        {
-            if (currentPos >= tokens.Count)
-            {
-                AddError("идентификатор", null);
-                return false;
-            }
-            var token = tokens[currentPos];
-            if (token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER)
-            {
-                currentPos++;
-                return true;
-            }
-            else
-            {
-                AddError("идентификатор", token);
-                currentPos++;
-                return false;
-            }
-        }
-
-        private bool ExpectOperator(string expectedValue)
-        {
-            if (currentPos >= tokens.Count)
-            {
-                AddError($"'{expectedValue}'", null);
-                return false;
-            }
-            var token = tokens[currentPos];
-            if (token.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
-                string.Equals(token.Value, expectedValue, StringComparison.Ordinal))
-            {
-                currentPos++;
-                return true;
-            }
-            else
-            {
-                AddError($"'{expectedValue}'", token);
-                currentPos++;
-                return false;
-            }
-        }
-
-        private bool ExpectNumber()
-        {
-            if (currentPos >= tokens.Count)
-            {
-                AddError("число", null);
-                return false;
-            }
-            var token = tokens[currentPos];
-            if (token.Code == (int)LexicalAnalyzer.TokenType.NUMBER)
-            {
-                currentPos++;
-                return true;
-            }
-            else
-            {
-                AddError("число", token);
-                currentPos++;
-                return false;
-            }
-        }
-
-        private void ExpectSemicolon()
-        {
-            if (currentPos >= tokens.Count)
-            {
-                AddError("';'", null);
                 return;
             }
-            var token = tokens[currentPos];
-            if (token.Code == (int)LexicalAnalyzer.TokenType.SEPARATOR && token.Value == ";")
+
+            AddError($"'{expected}'", CurrentToken());
+
+            if (currentPos >= tokens.Count)
+                return;
+
+            var current = CurrentToken();
+
+            if (LooksLikeKeyword(current.Value, expected))
             {
                 currentPos++;
+                return;
             }
-            else
+            if (isNextElement(current))
             {
-                AddError("';'", token);
-                if (token.Value != ";")
-                    currentPos++;
+                return;
             }
+
+            currentPos++;
         }
-        private void SkipToSemicolonWithNumberError()
+
+        private void MatchIdentifier()
         {
-            while (currentPos < tokens.Count)
+            if (IsIdentifier())
             {
-                var token = tokens[currentPos];
-                if (token.Value == ";")
-                    break;
-                if (token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER && ContainsDigit(token.Value))
+                currentPos++;
+                return;
+            }
+
+            AddError("идентификатор", CurrentToken());
+
+            if (currentPos >= tokens.Count)
+                return;
+
+            if (IsKeyword("CONSTANT"))
+                return;
+
+            SkipUntil(t => IsKeywordAt(t, "CONSTANT"));
+        }
+
+        private void MatchOperator(string expected)
+        {
+            if (IsOperator(expected))
+            {
+                currentPos++;
+                return;
+            }
+
+            AddError($"'{expected}'", CurrentToken());
+
+            if (currentPos >= tokens.Count)
+                return;
+
+            if (IsNumber())
+                return;
+
+            if (CurrentToken().Code == (int)LexicalAnalyzer.TokenType.OPERATOR)
+            {
+                currentPos++;
+                return;
+            }
+
+            SkipUntil(t =>
+                t.Code == (int)LexicalAnalyzer.TokenType.NUMBER ||
+                t.Value == ";");
+        }
+
+        private void MatchNumber()
+        {
+            if (IsNumber())
+            {
+                currentPos++;
+                return;
+            }
+
+            AddError("число", CurrentToken());
+
+            if (currentPos >= tokens.Count)
+                return;
+
+            if (IsSemicolon())
+                return;
+
+            SkipUntil(t => t.Value == ";");
+        }
+
+        private void MatchSemicolon()
+        {
+            if (IsSemicolon())
+            {
+                currentPos++;
+                return;
+            }
+
+            AddError("';'", CurrentToken());
+
+            if (currentPos >= tokens.Count)
+                return;
+
+            SkipUntil(t => t.Value == ";");
+
+            if (IsSemicolon())
+                currentPos++;
+        }
+
+        private bool NextAfter_DECLARE(LexicalAnalyzer.Token token)
+        {
+            return token != null &&
+                   !token.IsError &&
+                   token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER &&
+                   !LooksLikeAnyKeyword(token.Value);
+        }
+
+        private bool NextAfter_CONSTANT(LexicalAnalyzer.Token token)
+        {
+            return IsKeywordAt(token, "INTEGER");
+        }
+
+        private bool NextAfter_INTEGER(LexicalAnalyzer.Token token)
+        {
+            return token != null &&
+                   !token.IsError &&
+                   token.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
+                   token.Value == ":=";
+        }
+
+        private bool LooksLikeAnyKeyword(string value)
+        {
+            return LooksLikeKeyword(value, "DECLARE") ||
+                   LooksLikeKeyword(value, "CONSTANT") ||
+                   LooksLikeKeyword(value, "INTEGER");
+        }
+
+        private bool LooksLikeKeyword(string value, string keyword)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+
+            if (string.Equals(value, keyword, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (Math.Abs(value.Length - keyword.Length) > 2)
+                return false;
+
+            int distance = LevenshteinDistance(
+                value.ToUpperInvariant(),
+                keyword.ToUpperInvariant()
+            );
+
+            return distance <= 2;
+        }
+
+        private int LevenshteinDistance(string a, string b)
+        {
+            int[,] dp = new int[a.Length + 1, b.Length + 1];
+
+            for (int i = 0; i <= a.Length; i++)
+                dp[i, 0] = i;
+
+            for (int j = 0; j <= b.Length; j++)
+                dp[0, j] = j;
+
+            for (int i = 1; i <= a.Length; i++)
+            {
+                for (int j = 1; j <= b.Length; j++)
                 {
-                    AddError("число", token);
+                    int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+
+                    dp[i, j] = Math.Min(
+                        Math.Min(
+                            dp[i - 1, j] + 1,
+                            dp[i, j - 1] + 1
+                        ),
+                        dp[i - 1, j - 1] + cost
+                    );
                 }
+            }
+
+            return dp[a.Length, b.Length];
+        }
+
+        private bool IsKeyword(string expected)
+        {
+            if (currentPos >= tokens.Count) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.KEYWORD &&
+                   string.Equals(t.Value, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsIdentifier()
+        {
+            if (currentPos >= tokens.Count) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER;
+        }
+
+        private bool IsOperator(string expected)
+        {
+            if (currentPos >= tokens.Count) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
+                   t.Value == expected;
+        }
+
+        private bool IsNumber()
+        {
+            if (currentPos >= tokens.Count) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.NUMBER;
+        }
+
+        private bool IsSemicolon()
+        {
+            if (currentPos >= tokens.Count) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.SEPARATOR &&
+                   t.Value == ";";
+        }
+
+        private bool IsKeywordAt(LexicalAnalyzer.Token token, string expected)
+        {
+            if (token == null || token.IsError) return false;
+
+            return token.Code == (int)LexicalAnalyzer.TokenType.KEYWORD &&
+                   string.Equals(token.Value, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void SkipUntil(Func<LexicalAnalyzer.Token, bool> stopCondition)
+        {
+            while (currentPos < tokens.Count && !stopCondition(tokens[currentPos]))
+            {
                 currentPos++;
             }
         }
 
-        private bool ContainsDigit(string s)
+        private LexicalAnalyzer.Token CurrentToken()
         {
-            foreach (char c in s)
-                if (char.IsDigit(c)) return true;
-            return false;
+            return currentPos < tokens.Count ? tokens[currentPos] : null;
         }
 
         private void AddError(string expected, LexicalAnalyzer.Token currentToken)
         {
             string fragment = currentToken != null ? currentToken.Value : "<конец строки>";
-            string location = currentToken != null ? $"строка {currentToken.Line}, позиция {currentToken.StartPos + 1}" : "конец файла";
+
+            string location = currentToken != null
+                ? $"строка {currentToken.Line}, позиция {currentToken.StartPos + 1}"
+                : "конец файла";
+
             string description = $"Ожидалось {expected}, найдено '{fragment}'";
+
             errors.Add(new SyntaxError
             {
                 Fragment = fragment,
