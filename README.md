@@ -63,7 +63,8 @@ P:
 A → aB
 В правой части каждого правила находится один терминальный символ и не более одного нетерминального символа. При этом нетерминальный символ, если он присутствует, расположен справа.
 
-<img width="748" height="641" alt="lab3" src="https://github.com/user-attachments/assets/3c37d189-e655-4eef-9930-882e9d99bfdb" />
+<img width="746" height="641" alt="lab3" src="https://github.com/user-attachments/assets/3689a53e-00f0-42eb-bae6-1bf1d8918771" />
+
 
 
 Рис2. Граф автоматной грамматики
