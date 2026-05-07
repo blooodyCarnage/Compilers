@@ -1,4 +1,4 @@
-
+<img width="748" height="641" alt="lab3" src="https://github.com/user-attachments/assets/a5fbd3c8-b595-41a4-8bc6-67f16e3cc973" />
 ## Навигация
 - [Лабораторная работа 3](#lab3)
 
@@ -64,7 +64,8 @@ P:
 A → aB
 В правой части каждого правила находится один терминальный символ и не более одного нетерминального символа. При этом нетерминальный символ, если он присутствует, расположен справа.
 
-<img width="748" height="641" alt="lab3" src="https://github.com/user-attachments/assets/2fe6d6ee-7926-4900-be1a-47d6821a7ad7" />
+<img width="748" height="641" alt="lab3" src="https://github.com/user-attachments/assets/3c37d189-e655-4eef-9930-882e9d99bfdb" />
+
 
 Рис2. Граф автоматной грамматики
 
