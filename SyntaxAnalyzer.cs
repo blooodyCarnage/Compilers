@@ -74,18 +74,22 @@ namespace comp
                 return;
             }
 
-            AddError($"'{expected}'", CurrentToken());
-
             if (currentPos >= currentLineEnd)
+            {
+                AddError($"'{expected}'", CurrentToken());
                 return;
+            }
 
             var current = CurrentToken();
 
             if (LooksLikeKeyword(current.Value, expected))
             {
+                AddKeywordError(expected, current);
                 currentPos++;
                 return;
             }
+
+            AddError($"'{expected}'", current);
 
             if (isNextElement(current))
                 return;
@@ -371,6 +375,65 @@ namespace comp
             errors.Add(new SyntaxError
             {
                 Fragment = fragment,
+                Location = location,
+                Description = description
+            });
+        }
+        private void AddKeywordError(string expected, LexicalAnalyzer.Token currentToken)
+        {
+            if (currentToken == null)
+            {
+                AddError($"'{expected}'", currentToken);
+                return;
+            }
+
+            string actual = currentToken.Value;
+
+            string upperExpected = expected.ToUpperInvariant();
+            string upperActual = actual.ToUpperInvariant();
+
+            int prefix = 0;
+
+            while (prefix < upperExpected.Length &&
+                   prefix < upperActual.Length &&
+                   upperExpected[prefix] == upperActual[prefix])
+            {
+                prefix++;
+            }
+
+            int suffix = 0;
+
+            while (suffix < upperExpected.Length - prefix &&
+                   suffix < upperActual.Length - prefix &&
+                   upperExpected[upperExpected.Length - 1 - suffix] ==
+                   upperActual[upperActual.Length - 1 - suffix])
+            {
+                suffix++;
+            }
+
+            int errorStart = prefix;
+            int errorLength = upperActual.Length - prefix - suffix;
+
+            if (errorLength <= 0)
+                errorLength = 1;
+
+            if (errorStart >= actual.Length)
+                errorStart = actual.Length - 1;
+
+            if (errorStart + errorLength > actual.Length)
+                errorLength = actual.Length - errorStart;
+
+            string wrongFragment = actual.Substring(errorStart, errorLength);
+
+            string location =
+                $"строка {currentToken.Line}, позиция {currentToken.StartPos + errorStart + 1}";
+
+            string description =
+                $"Ожидалось '{expected}', найдено '{actual}'";
+
+            errors.Add(new SyntaxError
+            {
+                Fragment = wrongFragment,
                 Location = location,
                 Description = description
             });

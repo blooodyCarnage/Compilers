@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace comp
 {
@@ -26,13 +27,89 @@ namespace comp
             openFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             saveFileDialog1.Filter = "Text files(*.txt)|*.txt|All files(*.*)|*.*";
             textBox1.TextChanged += TextBox1_TextChanged;
-            lastTextState = textBox1.Text;
 
             InitializeEventHandlers();
 
             dataGridViewSyntaxErrors.CellClick += DataGridViewSyntaxErrors_CellClick;
-        }
 
+            CreateTextMenu();
+        }
+        private void CreateTextMenu()
+        {
+            ToolStripMenuItem текстToolStripMenuItem = new ToolStripMenuItem();
+            текстToolStripMenuItem.Name = "текстToolStripMenuItem";
+            текстToolStripMenuItem.Text = "Текст";
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Постановка задачи", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.b9f515lw7ahn")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Грамматика", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.f1khvv1vfj5j")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Классификация грамматики", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.tfyplo3nuu5i")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Метод анализа", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.w5nko5s1rdka")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Диагностика и нейтрализация ошибок", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.cio90abaqrj9")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Тестовый пример", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.kffipbewqu7x")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Список литературы", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.xbcgfyq7fdyh")
+            );
+
+            текстToolStripMenuItem.DropDownItems.Add(
+                CreateGoogleDocMenuItem("Исходный код программы", "https://docs.google.com/document/d/1OGdS2wuu9XFbennB3lYzXE29VhGk_S1jTFkbgTgGAAw/edit?hl=ru&pli=1&tab=t.0#heading=h.eftxcd90bxqm")
+            );
+
+            menuStrip1.Items.Add(текстToolStripMenuItem);
+        }
+        private ToolStripMenuItem CreateGoogleDocMenuItem(string title, string url)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem();
+            item.Text = title;
+            item.Tag = url;
+            item.Click += GoogleDocMenuItem_Click;
+
+            return item;
+        }
+        private void GoogleDocMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ToolStripMenuItem item = sender as ToolStripMenuItem;
+
+                if (item == null || item.Tag == null)
+                    return;
+
+                string url = item.Tag.ToString();
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Не удалось открыть Google Документ:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
         private void InitializeEventHandlers()
         {
             if (сохранитьToolStripButton != null)
@@ -558,98 +635,138 @@ namespace comp
             if (e.RowIndex < 0)
                 return;
 
-            var row = dataGridViewResults.Rows[e.RowIndex];
-            string location = row.Cells[3].Value?.ToString();
-
-            if (string.IsNullOrEmpty(location))
-                return;
-
             try
             {
-                string[] parts = location.Replace("строка ", "").Split(',');
+                var row = dataGridViewResults.Rows[e.RowIndex];
 
-                if (parts.Length != 2)
+                string location = row.Cells[3].Value?.ToString();
+
+                if (string.IsNullOrWhiteSpace(location))
                     return;
 
-                int line = int.Parse(parts[0].Trim());
-
-                string posPart = parts[1].Trim();
-                string[] positions = posPart.Split('-');
-
-                int startPosInLine = int.Parse(positions[0]) - 1;
-                int endPosInLine = startPosInLine;
-
-                if (positions.Length == 2)
-                    endPosInLine = int.Parse(positions[1]) - 1;
-
-                int absoluteStart = GetAbsoluteTextBoxIndex(line, startPosInLine);
-                int absoluteEnd = GetAbsoluteTextBoxIndex(line, endPosInLine);
-
-                if (absoluteStart < 0 || absoluteStart >= textBox1.Text.Length)
-                    return;
-
-                int selectionLength = absoluteEnd - absoluteStart + 1;
-
-                if (selectionLength < 1)
-                    selectionLength = 1;
-
-                textBox1.Focus();
-                textBox1.SelectionStart = absoluteStart;
-                textBox1.SelectionLength = selectionLength;
-                textBox1.ScrollToCaret();
+                SelectFragmentByLocation(location);
             }
             catch
             {
             }
         }
-        private int GetAbsoluteTextBoxIndex(int lineNumber, int positionInLine)
-        {
-            if (lineNumber < 1 || positionInLine < 0)
-                return -1;
 
-            string[] lines = textBox1.Lines;
-
-            if (lineNumber > lines.Length)
-                return -1;
-
-            int index = 0;
-
-            for (int i = 0; i < lineNumber - 1; i++)
-            {
-                index += lines[i].Length;
-                index += Environment.NewLine.Length;
-            }
-
-            return index + positionInLine;
-        }
         private void DataGridViewSyntaxErrors_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (e.RowIndex < 0)
+                return;
+
+            try
             {
                 var row = dataGridViewSyntaxErrors.Rows[e.RowIndex];
-                string location = row.Cells["ColumnLocation"].Value?.ToString();
-                if (!string.IsNullOrEmpty(location))
-                {
-                    try
-                    {
-                        string[] parts = location.Replace("строка ", "").Split(',');
-                        if (parts.Length == 2)
-                        {
-                            int line = int.Parse(parts[0].Trim());
-                            string posPart = parts[1].Trim().Replace("позиция ", "");
-                            int startPos = int.Parse(posPart) - 1;
-                            if (startPos >= 0 && startPos < textBox1.Text.Length)
-                            {
-                                textBox1.Focus();
-                                textBox1.SelectionStart = startPos;
-                                textBox1.SelectionLength = 1;
-                                textBox1.ScrollToCaret();
-                            }
-                        }
-                    }
-                    catch { }
-                }
+
+                string fragment = row.Cells[0].Value?.ToString();
+                string location = row.Cells[1].Value?.ToString();
+
+                if (string.IsNullOrWhiteSpace(location))
+                    return;
+
+                SelectSyntaxErrorFragment(location, fragment);
             }
+            catch
+            {
+            }
+        }
+        private void SelectSyntaxErrorFragment(string location, string fragment)
+        {
+            if (string.IsNullOrWhiteSpace(location))
+                return;
+
+            string cleaned = location
+                .Replace("строка", "")
+                .Replace("позиция", "")
+                .Trim();
+
+            string[] parts = cleaned.Split(',');
+
+            if (parts.Length < 2)
+                return;
+
+            if (!int.TryParse(parts[1].Trim(), out int start))
+                return;
+
+            int absoluteStart = start - 1;
+
+            if (absoluteStart < 0 || absoluteStart >= textBox1.Text.Length)
+                return;
+
+            int length = 1;
+
+            if (!string.IsNullOrEmpty(fragment) && fragment != "<конец строки>")
+                length = fragment.Length;
+
+            if (absoluteStart + length > textBox1.Text.Length)
+                length = textBox1.Text.Length - absoluteStart;
+
+            textBox1.Focus();
+            textBox1.SelectionStart = absoluteStart;
+            textBox1.SelectionLength = length;
+            textBox1.ScrollToCaret();
+        }
+        private void SelectFragmentByLocation(string location, string fragment = null)
+        {
+            if (string.IsNullOrWhiteSpace(location))
+                return;
+
+            string cleaned = location
+                .Replace("строка", "")
+                .Replace("позиция", "")
+                .Trim();
+
+            string[] parts = cleaned.Split(',');
+
+            if (parts.Length < 2)
+                return;
+
+            string posPart = parts[1].Trim();
+
+            int start;
+            int end;
+
+            if (posPart.Contains("-"))
+            {
+                string[] positions = posPart.Split('-');
+
+                if (!int.TryParse(positions[0].Trim(), out start))
+                    return;
+
+                if (!int.TryParse(positions[1].Trim(), out end))
+                    return;
+            }
+            else
+            {
+                if (!int.TryParse(posPart.Trim(), out start))
+                    return;
+
+                if (!string.IsNullOrEmpty(fragment) && fragment != "<конец строки>")
+                    end = start + fragment.Length - 1;
+                else
+                    end = start;
+            }
+
+            int absoluteStart = start - 1;
+            int absoluteEnd = end - 1;
+
+            if (absoluteStart < 0 || absoluteStart >= textBox1.Text.Length)
+                return;
+
+            if (absoluteEnd < absoluteStart)
+                absoluteEnd = absoluteStart;
+
+            if (absoluteEnd >= textBox1.Text.Length)
+                absoluteEnd = textBox1.Text.Length - 1;
+
+            int selectionLength = absoluteEnd - absoluteStart + 1;
+
+            textBox1.Focus();
+            textBox1.SelectionStart = absoluteStart;
+            textBox1.SelectionLength = selectionLength;
+            textBox1.ScrollToCaret();
         }
     }
 }
