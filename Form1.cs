@@ -29,6 +29,7 @@ namespace comp
             textBox1.TextChanged += TextBox1_TextChanged;
 
             InitializeEventHandlers();
+            ConfigureSemanticErrorsGrid();
 
             dataGridViewSyntaxErrors.CellClick += DataGridViewSyntaxErrors_CellClick;
 
@@ -580,53 +581,85 @@ namespace comp
         {
             dataGridViewResults.Rows.Clear();
             dataGridViewSyntaxErrors.Rows.Clear();
+
             labelErrorCount.Text = "Общее количество ошибок: 0";
 
             string inputText = textBox1.Text;
+
             if (string.IsNullOrEmpty(inputText))
             {
-                MessageBox.Show("Введите текст для анализа", "Предупреждение",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "Введите текст для анализа",
+                    "Предупреждение",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+
                 return;
             }
 
             var tokens = analyzer.Analyze(inputText);
-
-            bool hasErrors = false;
-            foreach (var token in tokens)
-            {
-                string location;
-                if (token.StartPos == token.EndPos)
-                    location = $"строка {token.Line}, {token.StartPos + 1}";
-                else
-                    location = $"строка {token.Line}, {token.StartPos + 1}-{token.EndPos + 1}";
-
-                int rowIndex = dataGridViewResults.Rows.Add(
-                    token.Code,
-                    token.Type,
-                    token.Value,
-                    location
-                );
-                if (token.IsError)
-                {
-                    dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor = System.Drawing.Color.LightCoral;
-                    hasErrors = true;
-                }
-            }
 
             var syntaxAnalyzer = new SyntaxAnalyzer(tokens);
             var syntaxErrors = syntaxAnalyzer.Parse();
 
             foreach (var err in syntaxErrors)
             {
-                dataGridViewSyntaxErrors.Rows.Add(err.Fragment, err.Location, err.Description);
+                dataGridViewSyntaxErrors.Rows.Add(
+                    err.Fragment,
+                    err.Location,
+                    err.Description
+                );
             }
-            labelErrorCount.Text = $"Общее количество ошибок: {syntaxErrors.Count}";
 
-            if (syntaxErrors.Count == 0)
+            if (syntaxErrors.Count > 0)
             {
-                MessageBox.Show("Синтаксических ошибок не обнаружено.", "Результат анализа",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                labelErrorCount.Text =
+                    $"Общее количество ошибок: {syntaxErrors.Count}";
+
+                MessageBox.Show(
+                    "Обнаружены синтаксические ошибки. Семантический анализ не выполнялся.",
+                    "Результат анализа",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+
+                return;
+            }
+
+            var semanticAnalyzer = new SemanticAnalyzer(tokens);
+            semanticAnalyzer.Analyze();
+
+            foreach (var err in semanticAnalyzer.Errors)
+            {
+                int rowIndex = dataGridViewResults.Rows.Add(
+                    err.Fragment,
+                    err.Location,
+                    err.Message
+                );
+
+                dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor =
+                    System.Drawing.Color.LightCoral;
+            }
+
+            labelErrorCount.Text =
+                $"Общее количество ошибок: {semanticAnalyzer.Errors.Count}";
+
+            MessageBox.Show(
+                semanticAnalyzer.GetAstText(),
+                "Абстрактное синтаксическое дерево AST",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+
+            if (semanticAnalyzer.Errors.Count == 0)
+            {
+                MessageBox.Show(
+                    "Семантических ошибок не обнаружено.",
+                    "Результат семантического анализа",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
             }
         }
 
@@ -639,16 +672,53 @@ namespace comp
             {
                 var row = dataGridViewResults.Rows[e.RowIndex];
 
-                string location = row.Cells[3].Value?.ToString();
+                string fragment = row.Cells[0].Value?.ToString();
+                string location = row.Cells[1].Value?.ToString();
 
                 if (string.IsNullOrWhiteSpace(location))
                     return;
 
-                SelectFragmentByLocation(location);
+                SelectSemanticErrorFragment(location, fragment);
             }
             catch
             {
             }
+        }
+        private void SelectSemanticErrorFragment(string location, string fragment)
+        {
+            if (string.IsNullOrWhiteSpace(location))
+                return;
+
+            string cleaned = location
+                .Replace("строка", "")
+                .Replace("символ", "")
+                .Trim();
+
+            string[] parts = cleaned.Split(',');
+
+            if (parts.Length < 2)
+                return;
+
+            if (!int.TryParse(parts[1].Trim(), out int start))
+                return;
+
+            int absoluteStart = start - 1;
+
+            if (absoluteStart < 0 || absoluteStart >= textBox1.Text.Length)
+                return;
+
+            int length = 1;
+
+            if (!string.IsNullOrEmpty(fragment))
+                length = fragment.Length;
+
+            if (absoluteStart + length > textBox1.Text.Length)
+                length = textBox1.Text.Length - absoluteStart;
+
+            textBox1.Focus();
+            textBox1.SelectionStart = absoluteStart;
+            textBox1.SelectionLength = length;
+            textBox1.ScrollToCaret();
         }
 
         private void DataGridViewSyntaxErrors_CellClick(object sender, DataGridViewCellEventArgs e)
@@ -767,6 +837,22 @@ namespace comp
             textBox1.SelectionStart = absoluteStart;
             textBox1.SelectionLength = selectionLength;
             textBox1.ScrollToCaret();
+        }
+        private void ConfigureSemanticErrorsGrid()
+        {
+            dataGridViewResults.Columns.Clear();
+
+            dataGridViewResults.Columns.Add("ColumnSemanticFragment", "Фрагмент");
+            dataGridViewResults.Columns.Add("ColumnSemanticLocation", "Позиция");
+            dataGridViewResults.Columns.Add("ColumnSemanticMessage", "Сообщение");
+
+            dataGridViewResults.Columns[0].Width = 180;
+            dataGridViewResults.Columns[1].Width = 180;
+            dataGridViewResults.Columns[2].Width = 700;
+
+            dataGridViewResults.MultiSelect = false;
+            dataGridViewResults.RowHeadersVisible = false;
+            dataGridViewResults.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         }
     }
 }

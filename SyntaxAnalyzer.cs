@@ -51,7 +51,7 @@ namespace comp
             MatchKeyword("CONSTANT", NextAfter_CONSTANT);
             MatchKeyword("INTEGER", NextAfter_INTEGER);
             MatchOperator(":=");
-            MatchNumber();
+            MatchValueExpression();
             MatchSemicolon();
         }
 
@@ -129,7 +129,7 @@ namespace comp
             if (currentPos >= currentLineEnd)
                 return;
 
-            if (IsNumber() || IsMinus())
+            if (IsNumber() || IsIdentifier() || IsMinus() || IsPlus())
                 return;
 
             if (CurrentToken().Code == (int)LexicalAnalyzer.TokenType.OPERATOR)
@@ -139,11 +139,14 @@ namespace comp
             }
 
             SkipUntil(t =>
-                t.Code == (int)LexicalAnalyzer.TokenType.NUMBER ||
-                t.Value == ";");
+                 t.Code == (int)LexicalAnalyzer.TokenType.NUMBER ||
+                 t.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER ||
+                 t.Value == "-" ||
+                 t.Value == "+" ||
+                 t.Value == ";");
         }
 
-        private void MatchNumber()
+        private void MatchValueExpression()
         {
             if (IsNumber())
             {
@@ -151,7 +154,13 @@ namespace comp
                 return;
             }
 
-            if (IsMinus())
+            if (IsIdentifier())
+            {
+                currentPos++;
+                return;
+            }
+
+            if (IsMinus() || IsPlus())
             {
                 currentPos++;
 
@@ -161,7 +170,7 @@ namespace comp
                     return;
                 }
 
-                AddError("число после '-'", CurrentToken());
+                AddError("число после знака", CurrentToken());
 
                 if (currentPos >= currentLineEnd)
                     return;
@@ -173,7 +182,7 @@ namespace comp
                 return;
             }
 
-            AddError("число", CurrentToken());
+            AddError("число или идентификатор", CurrentToken());
 
             if (currentPos >= currentLineEnd)
                 return;
@@ -329,6 +338,16 @@ namespace comp
 
             return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
                    t.Value == "-";
+        }
+        private bool IsPlus()
+        {
+            if (currentPos >= currentLineEnd) return false;
+
+            var t = tokens[currentPos];
+            if (t.IsError) return false;
+
+            return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
+                   t.Value == "+";
         }
         private bool IsSemicolon()
         {
