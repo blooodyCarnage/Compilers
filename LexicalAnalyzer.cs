@@ -7,18 +7,14 @@ namespace comp
     {
         public enum TokenType
         {
-            KEYWORD = 1,
-            IDENTIFIER = 2,
-            NUMBER = 3,
-            OPERATOR = 4,
-            SEPARATOR = 5,
+            IDENTIFIER = 1,
+            NUMBER = 2,
+            OPERATOR = 3,
+            LEFT_PAREN = 4,
+            RIGHT_PAREN = 5,
+            SEPARATOR = 6,
             ERROR = 99
         }
-
-        private readonly HashSet<string> keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "DECLARE", "CONSTANT", "INTEGER"
-        };
 
         public class Token
         {
@@ -35,6 +31,7 @@ namespace comp
         {
             var tokens = new List<Token>();
             int line = 1;
+            int column = 0;
             int pos = 0;
 
             while (pos < text.Length)
@@ -43,85 +40,106 @@ namespace comp
 
                 if (char.IsWhiteSpace(ch))
                 {
-                    if (ch == '\n') line++;
-                    pos++;
-                    continue;
-                }
-
-                if (ch == ':' && pos + 1 < text.Length && text[pos + 1] == '=')
-                {
-                    tokens.Add(CreateToken(TokenType.OPERATOR, ":=", line, pos, pos + 1));
-                    pos += 2;
-                    continue;
-                }
-
-                if (ch == ':')
-                {
-                    int start = pos;
-                    string err = "";
-                    while (pos < text.Length && !char.IsWhiteSpace(text[pos]) && text[pos] != ';')
+                    if (ch == '\n')
                     {
-                        err += text[pos];
-                        pos++;
+                        line++;
+                        column = 0;
                     }
-                    tokens.Add(CreateErrorToken(err, line, start, pos - 1));
-                    continue;
-                }
+                    else if (ch == '\r')
+                    {
+                        column = 0;
+                    }
+                    else
+                    {
+                        column++;
+                    }
 
-                if (ch == ';')
-                {
-                    tokens.Add(CreateToken(TokenType.SEPARATOR, ";", line, pos, pos));
                     pos++;
-                    continue;
-                }
-                if (ch == '=' || ch == '+' || ch == '-')
-                {
-                    tokens.Add(CreateToken(TokenType.OPERATOR, ch.ToString(), line, pos, pos));
-                    pos++;
-                    continue;
-                }
-
-                if (char.IsDigit(ch))
-                {
-                    int start = pos;
-                    while (pos < text.Length && char.IsDigit(text[pos])) pos++;
-                    string val = text.Substring(start, pos - start);
-                    tokens.Add(CreateToken(TokenType.NUMBER, val, line, start, pos - 1));
                     continue;
                 }
 
                 if (char.IsLetter(ch) || ch == '_')
                 {
                     int start = pos;
-                    string word = "";
+                    string value = "";
+
                     while (pos < text.Length && (char.IsLetterOrDigit(text[pos]) || text[pos] == '_'))
                     {
-                        word += text[pos];
+                        value += text[pos];
                         pos++;
+                        column++;
                     }
-                    if (pos < text.Length)
-                    {
-                        char next = text[pos];
-                        if (!char.IsWhiteSpace(next) && next != ';' && next != ':' && next != '=' && next != '+' && next != '-')
-                        {
-                            while (pos < text.Length && !char.IsWhiteSpace(text[pos]) && text[pos] != ';' && text[pos] != ':' && text[pos] != '=' && text[pos] != '+' && text[pos] != '-')
-                            {
-                                word += text[pos];
-                                pos++;
-                            }
-                            tokens.Add(CreateErrorToken(word, line, start, pos - 1));
-                            continue;
-                        }
-                    }
-                    if (keywords.Contains(word))
-                        tokens.Add(CreateToken(TokenType.KEYWORD, word, line, start, pos - 1));
-                    else
-                        tokens.Add(CreateToken(TokenType.IDENTIFIER, word, line, start, pos - 1));
+
+                    tokens.Add(CreateToken(TokenType.IDENTIFIER, value, line, start, pos - 1));
                     continue;
                 }
 
-                tokens.Add(CreateErrorToken(ch.ToString(), line, pos, pos));
+                if (char.IsDigit(ch))
+                {
+                    int start = pos;
+                    string value = "";
+
+                    while (pos < text.Length && char.IsDigit(text[pos]))
+                    {
+                        value += text[pos];
+                        pos++;
+                        column++;
+                    }
+
+                    if (pos < text.Length && (char.IsLetter(text[pos]) || text[pos] == '_'))
+                    {
+                        while (pos < text.Length && (char.IsLetterOrDigit(text[pos]) || text[pos] == '_'))
+                        {
+                            value += text[pos];
+                            pos++;
+                            column++;
+                        }
+
+                        tokens.Add(CreateErrorToken(value, line, start, pos - 1,
+                            "Число не может сразу переходить в идентификатор"));
+                        continue;
+                    }
+
+                    tokens.Add(CreateToken(TokenType.NUMBER, value, line, start, pos - 1));
+                    continue;
+                }
+
+                if (ch == '+' || ch == '-' || ch == '*' || ch == '/')
+                {
+                    tokens.Add(CreateToken(TokenType.OPERATOR, ch.ToString(), line, pos, pos));
+                    pos++;
+                    column++;
+                    continue;
+                }
+
+                if (ch == '(')
+                {
+                    tokens.Add(CreateToken(TokenType.LEFT_PAREN, ch.ToString(), line, pos, pos));
+                    pos++;
+                    column++;
+                    continue;
+                }
+
+                if (ch == ')')
+                {
+                    tokens.Add(CreateToken(TokenType.RIGHT_PAREN, ch.ToString(), line, pos, pos));
+                    pos++;
+                    column++;
+                    continue;
+                }
+
+                if (ch == ';')
+                {
+                    tokens.Add(CreateToken(TokenType.SEPARATOR, ch.ToString(), line, pos, pos));
+                    pos++;
+                    column++;
+                    continue;
+                }
+
+                tokens.Add(CreateErrorToken(ch.ToString(), line, pos, pos,
+                    "Недопустимый символ"));
                 pos++;
+                column++;
             }
 
             return tokens;
@@ -135,18 +153,18 @@ namespace comp
                 Type = GetTypeDescription(type),
                 Value = value,
                 Line = line,
-                    StartPos = start,
-                    EndPos = end,
+                StartPos = start,
+                EndPos = end,
                 IsError = false
             };
         }
 
-        private Token CreateErrorToken(string value, int line, int start, int end)
+        private Token CreateErrorToken(string value, int line, int start, int end, string description)
         {
             return new Token
             {
                 Code = (int)TokenType.ERROR,
-                Type = "Ошибка",
+                Type = "Ошибка: " + description,
                 Value = value,
                 Line = line,
                 StartPos = start,
@@ -159,10 +177,11 @@ namespace comp
         {
             switch (type)
             {
-                case TokenType.KEYWORD: return "Ключевое слово";
                 case TokenType.IDENTIFIER: return "Идентификатор";
                 case TokenType.NUMBER: return "Число";
                 case TokenType.OPERATOR: return "Оператор";
+                case TokenType.LEFT_PAREN: return "Открывающая скобка";
+                case TokenType.RIGHT_PAREN: return "Закрывающая скобка";
                 case TokenType.SEPARATOR: return "Разделитель";
                 default: return "Неизвестный тип";
             }

@@ -16,6 +16,9 @@ namespace comp
         private bool ignoreTextChanges = false;
         private string lastTextState = "";
         private LexicalAnalyzer analyzer = new LexicalAnalyzer();
+        private DataGridView dataGridViewTetrads;
+        private DataGridView dataGridViewPoliz;
+        private TabControl tabControlLab6;
 
         public Form1()
         {
@@ -31,8 +34,69 @@ namespace comp
             InitializeEventHandlers();
 
             dataGridViewSyntaxErrors.CellClick += DataGridViewSyntaxErrors_CellClick;
+            InitializeInternalRepresentationTables();
 
             CreateTextMenu();
+        }
+
+        private void InitializeInternalRepresentationTables()
+        {
+            tabControlLab6 = new TabControl();
+            tabControlLab6.Location = dataGridViewSyntaxErrors.Location;
+            tabControlLab6.Size = dataGridViewSyntaxErrors.Size;
+            tabControlLab6.Anchor = dataGridViewSyntaxErrors.Anchor;
+            tabControlLab6.Name = "tabControlLab6";
+
+            Controls.Remove(dataGridViewSyntaxErrors);
+            dataGridViewSyntaxErrors.Dock = DockStyle.Fill;
+
+            var errorsPage = new TabPage("Ошибки");
+            errorsPage.Controls.Add(dataGridViewSyntaxErrors);
+
+            dataGridViewTetrads = new DataGridView();
+            dataGridViewTetrads.Dock = DockStyle.Fill;
+            dataGridViewTetrads.RowHeadersVisible = false;
+            dataGridViewTetrads.AllowUserToAddRows = false;
+            dataGridViewTetrads.ReadOnly = true;
+            dataGridViewTetrads.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dataGridViewTetrads.Columns.Add("Number", "№");
+            dataGridViewTetrads.Columns.Add("Operation", "op");
+            dataGridViewTetrads.Columns.Add("Arg1", "arg1");
+            dataGridViewTetrads.Columns.Add("Arg2", "arg2");
+            dataGridViewTetrads.Columns.Add("Result", "result");
+
+            var tetradsPage = new TabPage("Тетрады");
+            tetradsPage.Controls.Add(dataGridViewTetrads);
+
+            dataGridViewPoliz = new DataGridView();
+            dataGridViewPoliz.Dock = DockStyle.Fill;
+            dataGridViewPoliz.RowHeadersVisible = false;
+            dataGridViewPoliz.AllowUserToAddRows = false;
+            dataGridViewPoliz.ReadOnly = true;
+            dataGridViewPoliz.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dataGridViewPoliz.Columns.Add("Poliz", "ПОЛИЗ");
+            dataGridViewPoliz.Columns.Add("Value", "Значение");
+            dataGridViewPoliz.Columns.Add("Comment", "Комментарий");
+
+            var polizPage = new TabPage("ПОЛИЗ");
+            polizPage.Controls.Add(dataGridViewPoliz);
+
+            tabControlLab6.TabPages.Add(errorsPage);
+            tabControlLab6.TabPages.Add(tetradsPage);
+            tabControlLab6.TabPages.Add(polizPage);
+            Controls.Add(tabControlLab6);
+            tabControlLab6.BringToFront();
+        }
+
+        private void ClearLab6Tables()
+        {
+            dataGridViewSyntaxErrors.Rows.Clear();
+
+            if (dataGridViewTetrads != null)
+                dataGridViewTetrads.Rows.Clear();
+
+            if (dataGridViewPoliz != null)
+                dataGridViewPoliz.Rows.Clear();
         }
         private void CreateTextMenu()
         {
@@ -183,7 +247,7 @@ namespace comp
                     textBox1.Clear();
                     ResetUndoRedoHistory();
                     dataGridViewResults.Rows.Clear();
-                    dataGridViewSyntaxErrors.Rows.Clear();
+                    ClearLab6Tables();
                     labelErrorCount.Text = "Общее количество ошибок: 0";
                     currentFileName = newFileName;
 
@@ -256,7 +320,7 @@ namespace comp
                     ResetUndoRedoHistory();
                     currentFileName = filename;
                     dataGridViewResults.Rows.Clear();
-                    dataGridViewSyntaxErrors.Rows.Clear();
+                    ClearLab6Tables();
                     labelErrorCount.Text = "Общее количество ошибок: 0";
                     MessageBox.Show("Файл открыт", "Информация",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -533,7 +597,8 @@ namespace comp
         private void вызовСправкиToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string helpMessage =
-                "Лексический анализатор\n\n" +
+                "Лабораторная работа 6: ВПП, тетрады и ПОЛИЗ\n\n" +
+                "Поддерживаемая грамматика: E → TA, A → ε | +TA | -TA, T → FB, B → ε | *FB | /FB, F → num | id | (E).\n" +
                 "Реализованные функции:\n" +
                 "• Создать - создание нового файла\n" +
                 "• Открыть - открытие существующего файла\n" +
@@ -547,7 +612,7 @@ namespace comp
                 "• Вставить - вставить текст из буфера\n" +
                 "• Удалить - удалить выделенный текст\n" +
                 "• Выделить всё - выделить весь текст\n" +
-                "• Пуск - запуск лексического и синтаксического анализа\n\n";
+                "• Пуск - запуск лексического и синтаксического анализа, построение тетрад и ПОЛИЗ\n\n";
 
             MessageBox.Show(helpMessage, "Справка",
                 MessageBoxButtons.OK,
@@ -566,7 +631,7 @@ namespace comp
         private void оПрограммеToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "Лексический анализатор\nВерсия 2.0 (с синтаксическим анализом)\n\nРаботу сделал Марченко А.Е. АП-326",
+                "Лабораторная работа 6\nВПП в виде тетрад и ПОЛИЗ для арифметических выражений\n\nРаботу сделал Марченко А.Е. АП-326",
                 "О программе",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -579,20 +644,20 @@ namespace comp
         private void RunAnalysis()
         {
             dataGridViewResults.Rows.Clear();
-            dataGridViewSyntaxErrors.Rows.Clear();
+            ClearLab6Tables();
             labelErrorCount.Text = "Общее количество ошибок: 0";
 
             string inputText = textBox1.Text;
-            if (string.IsNullOrEmpty(inputText))
+            if (string.IsNullOrWhiteSpace(inputText))
             {
-                MessageBox.Show("Введите текст для анализа", "Предупреждение",
+                MessageBox.Show("Введите выражение для анализа", "Предупреждение",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             var tokens = analyzer.Analyze(inputText);
+            bool hasLexicalErrors = false;
 
-            bool hasErrors = false;
             foreach (var token in tokens)
             {
                 string location;
@@ -607,26 +672,67 @@ namespace comp
                     token.Value,
                     location
                 );
+
                 if (token.IsError)
                 {
                     dataGridViewResults.Rows[rowIndex].DefaultCellStyle.BackColor = System.Drawing.Color.LightCoral;
-                    hasErrors = true;
+                    hasLexicalErrors = true;
                 }
             }
 
             var syntaxAnalyzer = new SyntaxAnalyzer(tokens);
-            var syntaxErrors = syntaxAnalyzer.Parse();
+            var analysisResult = syntaxAnalyzer.AnalyzeProgram();
 
-            foreach (var err in syntaxErrors)
+            foreach (var err in analysisResult.Errors)
             {
                 dataGridViewSyntaxErrors.Rows.Add(err.Fragment, err.Location, err.Description);
             }
-            labelErrorCount.Text = $"Общее количество ошибок: {syntaxErrors.Count}";
 
-            if (syntaxErrors.Count == 0)
+            foreach (var tetrad in analysisResult.Tetrads)
             {
-                MessageBox.Show("Синтаксических ошибок не обнаружено.", "Результат анализа",
+                dataGridViewTetrads.Rows.Add(
+                    tetrad.Number,
+                    tetrad.Operation,
+                    tetrad.Arg1,
+                    tetrad.Arg2,
+                    tetrad.Result
+                );
+            }
+
+            if (analysisResult.Poliz.Count > 0)
+            {
+                string value = analysisResult.PolizValue.HasValue
+                    ? analysisResult.PolizValue.Value.ToString()
+                    : "не вычислено";
+
+                dataGridViewPoliz.Rows.Add(
+                    string.Join(" ", analysisResult.Poliz.ToArray()),
+                    value,
+                    "Выражение состоит только из целых чисел"
+                );
+            }
+            else if (!string.IsNullOrWhiteSpace(analysisResult.Warning))
+            {
+                dataGridViewPoliz.Rows.Add("—", "—", analysisResult.Warning);
+            }
+
+            labelErrorCount.Text = $"Общее количество ошибок: {analysisResult.Errors.Count}";
+
+            if (analysisResult.Errors.Count == 0)
+            {
+                string message = "Лексических и синтаксических ошибок не обнаружено. Тетрады сформированы.";
+
+                if (analysisResult.Poliz.Count > 0)
+                    message += " ПОЛИЗ построен и вычислен.";
+                else if (!string.IsNullOrWhiteSpace(analysisResult.Warning))
+                    message += " " + analysisResult.Warning;
+
+                MessageBox.Show(message, "Результат анализа",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else if ((hasLexicalErrors || analysisResult.Errors.Count > 0) && dataGridViewPoliz.Rows.Count == 0)
+            {
+                dataGridViewPoliz.Rows.Add("—", "—", "Есть ошибки. Тетрады и ПОЛИЗ не формируются.");
             }
         }
 

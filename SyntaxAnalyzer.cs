@@ -1,443 +1,743 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace comp
 {
     public class SyntaxAnalyzer
     {
-        private List<LexicalAnalyzer.Token> tokens;
+        private readonly List<LexicalAnalyzer.Token> tokens;
         private int currentPos;
-        private int currentLineEnd;
-        private int currentLineNumber;
-        private List<SyntaxError> errors;
+        private int tempCounter;
+        private readonly InternalRepresentationResult result;
 
         public SyntaxAnalyzer(List<LexicalAnalyzer.Token> tokens)
         {
-            this.tokens = tokens;
+            this.tokens = tokens ?? new List<LexicalAnalyzer.Token>();
             currentPos = 0;
-            currentLineEnd = 0;
-            currentLineNumber = 1;
-            errors = new List<SyntaxError>();
+            tempCounter = 1;
+            result = new InternalRepresentationResult();
         }
 
         public List<SyntaxError> Parse()
         {
+            return AnalyzeProgram().Errors;
+        }
+
+        public InternalRepresentationResult AnalyzeProgram()
+        {
+            result.Errors.Clear();
+            result.Tetrads.Clear();
+            result.Poliz.Clear();
+            result.Warning = "";
+            result.PolizValue = null;
+            currentPos = 0;
+            tempCounter = 1;
+
+            bool hasLexicalErrors = false;
+
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                if (tokens[i].IsError)
+                {
+                    hasLexicalErrors = true;
+
+                    result.Errors.Add(new SyntaxError
+                    {
+                        Fragment = tokens[i].Value,
+                        Location = "строка " + tokens[i].Line + ", позиция " + (tokens[i].StartPos + 1),
+                        Description = tokens[i].Type
+                    });
+                }
+            }
+
+            if (hasLexicalErrors)
+            {
+                result.Warning = "Есть лексические ошибки. Синтаксический анализ, тетрады и ПОЛИЗ не формируются.";
+                return result;
+            }
+
             while (currentPos < tokens.Count)
             {
-                currentLineNumber = tokens[currentPos].Line;
-                currentLineEnd = FindLineEnd(currentPos);
+                int line = Current().Line;
+                List<LexicalAnalyzer.Token> expressionTokens = ReadExpressionLine(line);
 
-                int startPos = currentPos;
+                if (expressionTokens.Count == 0)
+                    continue;
 
-                ParseDeclaration();
+                AnalyzeExpression(expressionTokens, line);
+            }
 
-                if (currentPos < currentLineEnd)
+            if (result.Errors.Count > 0)
+            {
+                result.Tetrads.Clear();
+                result.Poliz.Clear();
+                result.PolizValue = null;
+                result.Warning = "Есть лексические или синтаксические ошибки. Тетрады и ПОЛИЗ не формируются.";
+            }
+
+            return result;
+        }
+
+        private List<LexicalAnalyzer.Token> ReadExpressionLine(int line)
+        {
+            var lineTokens = new List<LexicalAnalyzer.Token>();
+            bool semicolonFound = false;
+
+            while (currentPos < tokens.Count && tokens[currentPos].Line == line)
+            {
+                LexicalAnalyzer.Token token = tokens[currentPos];
+
+                if (semicolonFound)
                 {
-                    AddError("конец объявления", CurrentToken());
-                    currentPos = currentLineEnd;
+                    AddError(token, "конец выражения", "Лишняя лексема после ';'");
+                    currentPos++;
+                    continue;
                 }
 
-                if (currentPos == startPos)
-                    currentPos++;
-            }
-
-            return errors;
-        }
-
-        private void ParseDeclaration()
-        {
-            MatchKeyword("DECLARE", NextAfter_DECLARE);
-            MatchIdentifier();
-            MatchKeyword("CONSTANT", NextAfter_CONSTANT);
-            MatchKeyword("INTEGER", NextAfter_INTEGER);
-            MatchOperator(":=");
-            MatchNumber();
-            MatchSemicolon();
-        }
-
-        private int FindLineEnd(int start)
-        {
-            int line = tokens[start].Line;
-            int pos = start;
-
-            while (pos < tokens.Count && tokens[pos].Line == line)
-                pos++;
-
-            return pos;
-        }
-
-        private void MatchKeyword(string expected, Func<LexicalAnalyzer.Token, bool> isNextElement)
-        {
-            if (IsKeyword(expected))
-            {
-                currentPos++;
-                return;
-            }
-
-            if (currentPos >= currentLineEnd)
-            {
-                AddError($"'{expected}'", CurrentToken());
-                return;
-            }
-
-            var current = CurrentToken();
-
-            if (LooksLikeKeyword(current.Value, expected))
-            {
-                AddKeywordError(expected, current);
-                currentPos++;
-                return;
-            }
-
-            AddError($"'{expected}'", current);
-
-            if (isNextElement(current))
-                return;
-
-            currentPos++;
-        }
-
-        private void MatchIdentifier()
-        {
-            if (IsIdentifier())
-            {
-                currentPos++;
-                return;
-            }
-
-            AddError("идентификатор", CurrentToken());
-
-            if (currentPos >= currentLineEnd)
-                return;
-
-            if (IsKeyword("CONSTANT"))
-                return;
-
-            SkipUntil(t => IsKeywordAt(t, "CONSTANT"));
-        }
-
-        private void MatchOperator(string expected)
-        {
-            if (IsOperator(expected))
-            {
-                currentPos++;
-                return;
-            }
-
-            AddError($"'{expected}'", CurrentToken());
-
-            if (currentPos >= currentLineEnd)
-                return;
-
-            if (IsNumber() || IsMinus())
-                return;
-
-            if (CurrentToken().Code == (int)LexicalAnalyzer.TokenType.OPERATOR)
-            {
-                currentPos++;
-                return;
-            }
-
-            SkipUntil(t =>
-                t.Code == (int)LexicalAnalyzer.TokenType.NUMBER ||
-                t.Value == ";");
-        }
-
-        private void MatchNumber()
-        {
-            if (IsNumber())
-            {
-                currentPos++;
-                return;
-            }
-
-            if (IsMinus())
-            {
-                currentPos++;
-
-                if (IsNumber())
+                if (IsSeparator(token))
                 {
+                    semicolonFound = true;
                     currentPos++;
-                    return;
+                    continue;
                 }
 
-                AddError("число после '-'", CurrentToken());
-
-                if (currentPos >= currentLineEnd)
-                    return;
-
-                if (IsSemicolon())
-                    return;
-
-                SkipUntil(t => t.Value == ";");
-                return;
+                lineTokens.Add(token);
+                currentPos++;
             }
 
-            AddError("число", CurrentToken());
-
-            if (currentPos >= currentLineEnd)
-                return;
-
-            if (IsSemicolon())
-                return;
-
-            SkipUntil(t => t.Value == ";");
+            return lineTokens;
         }
 
-        private void MatchSemicolon()
+        private void AnalyzeExpression(List<LexicalAnalyzer.Token> expressionTokens, int line)
         {
-            if (IsSemicolon())
+            var parser = new ExpressionParser(expressionTokens, line, this, tempCounter);
+            ExpressionParseResult expressionResult = parser.Parse();
+            tempCounter = parser.TempCounter;
+
+            if (expressionResult.Errors.Count > 0)
             {
-                currentPos++;
+                result.Errors.AddRange(expressionResult.Errors);
                 return;
             }
 
-            AddError("';'", CurrentToken());
+            for (int i = 0; i < expressionResult.Tetrads.Count; i++)
+                expressionResult.Tetrads[i].Number = result.Tetrads.Count + i + 1;
 
-            if (currentPos >= currentLineEnd)
-                return;
+            result.Tetrads.AddRange(expressionResult.Tetrads);
 
-            SkipUntil(t => t.Value == ";");
+            bool onlyIntegerNumbers = true;
 
-            if (IsSemicolon())
-                currentPos++;
+            for (int i = 0; i < expressionTokens.Count; i++)
+            {
+                if (IsIdentifier(expressionTokens[i]))
+                {
+                    onlyIntegerNumbers = false;
+                    break;
+                }
+            }
+
+            if (onlyIntegerNumbers)
+            {
+                var polizBuilder = new PolizBuilder(expressionTokens);
+                PolizResult polizResult = polizBuilder.BuildAndEvaluate();
+
+                result.Poliz = polizResult.Poliz;
+                result.PolizValue = polizResult.Value;
+
+                if (polizResult.Errors.Count > 0)
+                {
+                    result.Warning = JoinPolizErrors(polizResult.Errors);
+                }
+                else
+                {
+                    result.Warning = "Выражение состоит только из целых чисел. ПОЛИЗ успешно построен и вычислен.";
+                }
+            }
+            else
+            {
+                result.Poliz.Clear();
+                result.PolizValue = null;
+                result.Warning = "ПОЛИЗ с вычислением формируется только для выражений из целых чисел. Для выражений с id построены только тетрады.";
+            }
         }
 
-        private bool NextAfter_DECLARE(LexicalAnalyzer.Token token)
+        private string JoinPolizErrors(List<SyntaxError> errors)
+        {
+            var messages = new List<string>();
+
+            for (int i = 0; i < errors.Count; i++)
+                messages.Add(errors[i].Description);
+
+            return string.Join("; ", messages.ToArray());
+        }
+
+        private bool IsSeparator(LexicalAnalyzer.Token token)
+        {
+            return token.Code == (int)LexicalAnalyzer.TokenType.SEPARATOR && token.Value == ";";
+        }
+
+        private bool IsIdentifier(LexicalAnalyzer.Token token)
+        {
+            return token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER;
+        }
+
+        private LexicalAnalyzer.Token Current()
+        {
+            return currentPos < tokens.Count ? tokens[currentPos] : null;
+        }
+
+        internal void AddError(LexicalAnalyzer.Token token, string expected, string description)
+        {
+            string fragment = token != null ? token.Value : "<конец строки>";
+            string location = token != null
+                ? "строка " + token.Line + ", позиция " + (token.StartPos + 1)
+                : "конец ввода";
+
+            result.Errors.Add(new SyntaxError
+            {
+                Fragment = fragment,
+                Location = location,
+                Description = description + ". Ожидалось: " + expected
+            });
+        }
+
+        internal static bool IsNumber(LexicalAnalyzer.Token token)
         {
             return token != null &&
                    !token.IsError &&
-                   token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER &&
-                   !LooksLikeAnyKeyword(token.Value);
+                   token.Code == (int)LexicalAnalyzer.TokenType.NUMBER;
         }
 
-        private bool NextAfter_CONSTANT(LexicalAnalyzer.Token token)
+        internal static bool IsIdentifierToken(LexicalAnalyzer.Token token)
         {
-            return IsKeywordAt(token, "INTEGER");
+            return token != null &&
+                   !token.IsError &&
+                   token.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER;
         }
 
-        private bool NextAfter_INTEGER(LexicalAnalyzer.Token token)
+        internal static bool IsOperator(LexicalAnalyzer.Token token, string value)
         {
             return token != null &&
                    !token.IsError &&
                    token.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
-                   token.Value == ":=";
+                   token.Value == value;
         }
 
-        private bool LooksLikeAnyKeyword(string value)
+        internal static bool IsLeftParen(LexicalAnalyzer.Token token)
         {
-            return LooksLikeKeyword(value, "DECLARE") ||
-                   LooksLikeKeyword(value, "CONSTANT") ||
-                   LooksLikeKeyword(value, "INTEGER");
+            return token != null &&
+                   !token.IsError &&
+                   token.Code == (int)LexicalAnalyzer.TokenType.LEFT_PAREN;
         }
 
-        private bool LooksLikeKeyword(string value, string keyword)
+        internal static bool IsRightParen(LexicalAnalyzer.Token token)
         {
-            if (string.IsNullOrEmpty(value))
-                return false;
-
-            if (string.Equals(value, keyword, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (Math.Abs(value.Length - keyword.Length) > 2)
-                return false;
-
-            int distance = LevenshteinDistance(
-                value.ToUpperInvariant(),
-                keyword.ToUpperInvariant()
-            );
-
-            return distance <= 2;
+            return token != null &&
+                   !token.IsError &&
+                   token.Code == (int)LexicalAnalyzer.TokenType.RIGHT_PAREN;
         }
 
-        private int LevenshteinDistance(string a, string b)
+        private class ExpressionParser
         {
-            int[,] dp = new int[a.Length + 1, b.Length + 1];
+            private readonly List<LexicalAnalyzer.Token> expressionTokens;
+            private readonly int line;
+            private readonly SyntaxAnalyzer owner;
+            private int pos;
+            private readonly ExpressionParseResult parseResult;
 
-            for (int i = 0; i <= a.Length; i++)
-                dp[i, 0] = i;
+            public int TempCounter { get; private set; }
 
-            for (int j = 0; j <= b.Length; j++)
-                dp[0, j] = j;
-
-            for (int i = 1; i <= a.Length; i++)
+            public ExpressionParser(
+                List<LexicalAnalyzer.Token> expressionTokens,
+                int line,
+                SyntaxAnalyzer owner,
+                int tempCounter)
             {
-                for (int j = 1; j <= b.Length; j++)
+                this.expressionTokens = expressionTokens;
+                this.line = line;
+                this.owner = owner;
+                TempCounter = tempCounter;
+                pos = 0;
+                parseResult = new ExpressionParseResult();
+            }
+
+            public ExpressionParseResult Parse()
+            {
+                if (expressionTokens.Count == 0)
+                    return parseResult;
+
+                ParseE();
+
+                if (pos < expressionTokens.Count && parseResult.Errors.Count == 0)
                 {
-                    int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    LexicalAnalyzer.Token token = Current();
 
-                    dp[i, j] = Math.Min(
-                        Math.Min(
-                            dp[i - 1, j] + 1,
-                            dp[i, j - 1] + 1
-                        ),
-                        dp[i - 1, j - 1] + cost
-                    );
+                    if (IsRightParen(token))
+                    {
+                        parseResult.Errors.Add(CreateError(
+                            token,
+                            "конец выражения",
+                            "Лишняя закрывающая скобка"));
+                    }
+                    else
+                    {
+                        parseResult.Errors.Add(CreateError(
+                            token,
+                            "конец выражения",
+                            "Лишняя лексема"));
+                    }
                 }
+
+                return parseResult;
             }
 
-            return dp[a.Length, b.Length];
-        }
-
-        private bool IsKeyword(string expected)
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.KEYWORD &&
-                   string.Equals(t.Value, expected, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private bool IsIdentifier()
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.IDENTIFIER;
-        }
-
-        private bool IsOperator(string expected)
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
-                   t.Value == expected;
-        }
-
-        private bool IsNumber()
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.NUMBER;
-        }
-        private bool IsMinus()
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.OPERATOR &&
-                   t.Value == "-";
-        }
-        private bool IsSemicolon()
-        {
-            if (currentPos >= currentLineEnd) return false;
-
-            var t = tokens[currentPos];
-            if (t.IsError) return false;
-
-            return t.Code == (int)LexicalAnalyzer.TokenType.SEPARATOR &&
-                   t.Value == ";";
-        }
-
-        private bool IsKeywordAt(LexicalAnalyzer.Token token, string expected)
-        {
-            if (token == null || token.IsError) return false;
-
-            return token.Code == (int)LexicalAnalyzer.TokenType.KEYWORD &&
-                   string.Equals(token.Value, expected, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private void SkipUntil(Func<LexicalAnalyzer.Token, bool> stopCondition)
-        {
-            while (currentPos < currentLineEnd && !stopCondition(tokens[currentPos]))
+            private string ParseE()
             {
-                currentPos++;
+                string left = ParseT();
+                return ParseA(left);
+            }
+
+            private string ParseA(string left)
+            {
+                while (IsOperator(Current(), "+") || IsOperator(Current(), "-"))
+                {
+                    string op = Current().Value;
+                    pos++;
+
+                    if (IsEnd() ||
+                        IsOperator(Current(), "+") ||
+                        IsOperator(Current(), "-") ||
+                        IsOperator(Current(), "*") ||
+                        IsOperator(Current(), "/") ||
+                        IsRightParen(Current()))
+                    {
+                        parseResult.Errors.Add(CreateError(
+                            Current(),
+                            "операнд после '" + op + "'",
+                            "Пропущен операнд"));
+
+                        return left;
+                    }
+
+                    string right = ParseT();
+
+                    if (parseResult.Errors.Count > 0)
+                        return left;
+
+                    left = AddTetrad(op, left, right);
+                }
+
+                return left;
+            }
+
+            private string ParseT()
+            {
+                string left = ParseF();
+                return ParseB(left);
+            }
+
+            private string ParseB(string left)
+            {
+                while (IsOperator(Current(), "*") || IsOperator(Current(), "/"))
+                {
+                    string op = Current().Value;
+                    pos++;
+
+                    if (IsEnd() ||
+                        IsOperator(Current(), "+") ||
+                        IsOperator(Current(), "-") ||
+                        IsOperator(Current(), "*") ||
+                        IsOperator(Current(), "/") ||
+                        IsRightParen(Current()))
+                    {
+                        parseResult.Errors.Add(CreateError(
+                            Current(),
+                            "операнд после '" + op + "'",
+                            "Пропущен операнд"));
+
+                        return left;
+                    }
+
+                    string right = ParseF();
+
+                    if (parseResult.Errors.Count > 0)
+                        return left;
+
+                    left = AddTetrad(op, left, right);
+                }
+
+                return left;
+            }
+
+            private string ParseF()
+            {
+                LexicalAnalyzer.Token token = Current();
+
+                if (IsNumber(token) || IsIdentifierToken(token))
+                {
+                    pos++;
+                    return token.Value;
+                }
+
+                if (IsLeftParen(token))
+                {
+                    pos++;
+
+                    if (IsRightParen(Current()))
+                    {
+                        parseResult.Errors.Add(CreateError(
+                            Current(),
+                            "выражение внутри скобок",
+                            "Пустые скобки"));
+
+                        pos++;
+                        return "?";
+                    }
+
+                    string value = ParseE();
+
+                    if (IsRightParen(Current()))
+                    {
+                        pos++;
+                        return value;
+                    }
+
+                    parseResult.Errors.Add(CreateError(
+                        Current(),
+                        "')'",
+                        "Не закрыта скобка"));
+
+                    return value;
+                }
+
+                if (IsRightParen(token))
+                {
+                    parseResult.Errors.Add(CreateError(
+                        token,
+                        "операнд или '('",
+                        "Лишняя закрывающая скобка"));
+
+                    pos++;
+                    return "?";
+                }
+
+                parseResult.Errors.Add(CreateError(
+                    token,
+                    "num, id или '('",
+                    "Пропущен операнд"));
+
+                if (!IsEnd())
+                    pos++;
+
+                return "?";
+            }
+
+            private string AddTetrad(string op, string arg1, string arg2)
+            {
+                string temp = "t" + TempCounter.ToString(CultureInfo.InvariantCulture);
+                TempCounter++;
+
+                parseResult.Tetrads.Add(new Tetrad
+                {
+                    Number = parseResult.Tetrads.Count + 1,
+                    Operation = op,
+                    Arg1 = arg1,
+                    Arg2 = arg2,
+                    Result = temp
+                });
+
+                return temp;
+            }
+
+            private LexicalAnalyzer.Token Current()
+            {
+                return pos < expressionTokens.Count ? expressionTokens[pos] : null;
+            }
+
+            private bool IsEnd()
+            {
+                return pos >= expressionTokens.Count;
+            }
+
+            private SyntaxError CreateError(
+                LexicalAnalyzer.Token token,
+                string expected,
+                string description)
+            {
+                string fragment = token != null ? token.Value : "<конец выражения>";
+                string location = token != null
+                    ? "строка " + token.Line + ", позиция " + (token.StartPos + 1)
+                    : "строка " + line + ", конец выражения";
+
+                return new SyntaxError
+                {
+                    Fragment = fragment,
+                    Location = location,
+                    Description = description + ". Ожидалось: " + expected
+                };
             }
         }
 
-        private LexicalAnalyzer.Token CurrentToken()
+        private class PolizBuilder
         {
-            return currentPos < currentLineEnd ? tokens[currentPos] : null;
-        }
+            private readonly List<LexicalAnalyzer.Token> expressionTokens;
+            private readonly List<SyntaxError> errors;
 
-        private void AddError(string expected, LexicalAnalyzer.Token currentToken)
-        {
-            string fragment = currentToken != null ? currentToken.Value : "<конец строки>";
-
-            string location = currentToken != null
-                ? $"строка {currentToken.Line}, позиция {currentToken.StartPos + 1}"
-                : $"строка {currentLineNumber}, конец строки";
-
-            string description = $"Ожидалось {expected}, найдено '{fragment}'";
-
-            errors.Add(new SyntaxError
+            public PolizBuilder(List<LexicalAnalyzer.Token> expressionTokens)
             {
-                Fragment = fragment,
-                Location = location,
-                Description = description
-            });
-        }
-        private void AddKeywordError(string expected, LexicalAnalyzer.Token currentToken)
-        {
-            if (currentToken == null)
-            {
-                AddError($"'{expected}'", currentToken);
-                return;
+                this.expressionTokens = expressionTokens;
+                errors = new List<SyntaxError>();
             }
 
-            string actual = currentToken.Value;
-
-            string upperExpected = expected.ToUpperInvariant();
-            string upperActual = actual.ToUpperInvariant();
-
-            int prefix = 0;
-
-            while (prefix < upperExpected.Length &&
-                   prefix < upperActual.Length &&
-                   upperExpected[prefix] == upperActual[prefix])
+            public PolizResult BuildAndEvaluate()
             {
-                prefix++;
+                var output = new List<string>();
+                var operations = new Stack<LexicalAnalyzer.Token>();
+
+                for (int i = 0; i < expressionTokens.Count; i++)
+                {
+                    LexicalAnalyzer.Token token = expressionTokens[i];
+
+                    if (IsNumber(token))
+                    {
+                        output.Add(token.Value);
+                        continue;
+                    }
+
+                    if (IsIdentifierToken(token))
+                    {
+                        errors.Add(CreateError(
+                            token,
+                            "целое число",
+                            "ПОЛИЗ с вычислением поддерживает только целые числа"));
+
+                        continue;
+                    }
+
+                    if (IsOperatorToken(token))
+                    {
+                        while (operations.Count > 0 &&
+                               IsOperatorToken(operations.Peek()) &&
+                               Priority(operations.Peek().Value) >= Priority(token.Value))
+                        {
+                            output.Add(operations.Pop().Value);
+                        }
+
+                        operations.Push(token);
+                        continue;
+                    }
+
+                    if (IsLeftParen(token))
+                    {
+                        operations.Push(token);
+                        continue;
+                    }
+
+                    if (IsRightParen(token))
+                    {
+                        while (operations.Count > 0 && !IsLeftParen(operations.Peek()))
+                        {
+                            output.Add(operations.Pop().Value);
+                        }
+
+                        if (operations.Count == 0)
+                        {
+                            errors.Add(CreateError(
+                                token,
+                                "'(' перед ')'",
+                                "Лишняя закрывающая скобка"));
+                        }
+                        else
+                        {
+                            operations.Pop();
+                        }
+                    }
+                }
+
+                while (operations.Count > 0)
+                {
+                    LexicalAnalyzer.Token op = operations.Pop();
+
+                    if (IsLeftParen(op))
+                    {
+                        errors.Add(CreateError(
+                            op,
+                            "')'",
+                            "Не закрыта скобка"));
+                    }
+                    else
+                    {
+                        output.Add(op.Value);
+                    }
+                }
+
+                int? value = null;
+
+                if (errors.Count == 0)
+                    value = Evaluate(output);
+
+                return new PolizResult
+                {
+                    Poliz = output,
+                    Value = value,
+                    Errors = errors
+                };
             }
 
-            int suffix = 0;
-
-            while (suffix < upperExpected.Length - prefix &&
-                   suffix < upperActual.Length - prefix &&
-                   upperExpected[upperExpected.Length - 1 - suffix] ==
-                   upperActual[upperActual.Length - 1 - suffix])
+            private int? Evaluate(List<string> poliz)
             {
-                suffix++;
+                var stack = new Stack<int>();
+
+                for (int i = 0; i < poliz.Count; i++)
+                {
+                    int number;
+
+                    if (int.TryParse(poliz[i], out number))
+                    {
+                        stack.Push(number);
+                        continue;
+                    }
+
+                    if (stack.Count < 2)
+                    {
+                        errors.Add(new SyntaxError
+                        {
+                            Fragment = poliz[i],
+                            Location = "ПОЛИЗ",
+                            Description = "Недостаточно операндов для операции '" + poliz[i] + "'"
+                        });
+
+                        return null;
+                    }
+
+                    int right = stack.Pop();
+                    int left = stack.Pop();
+
+                    switch (poliz[i])
+                    {
+                        case "+":
+                            stack.Push(left + right);
+                            break;
+
+                        case "-":
+                            stack.Push(left - right);
+                            break;
+
+                        case "*":
+                            stack.Push(left * right);
+                            break;
+
+                        case "/":
+                            if (right == 0)
+                            {
+                                errors.Add(new SyntaxError
+                                {
+                                    Fragment = "/",
+                                    Location = "ПОЛИЗ",
+                                    Description = "Деление на ноль при вычислении ПОЛИЗ"
+                                });
+
+                                return null;
+                            }
+
+                            stack.Push(left / right);
+                            break;
+                    }
+                }
+
+                if (stack.Count != 1)
+                {
+                    errors.Add(new SyntaxError
+                    {
+                        Fragment = string.Join(" ", poliz.ToArray()),
+                        Location = "ПОЛИЗ",
+                        Description = "Ошибка вычисления: после обработки остались лишние значения"
+                    });
+
+                    return null;
+                }
+
+                return stack.Pop();
             }
 
-            int errorStart = prefix;
-            int errorLength = upperActual.Length - prefix - suffix;
-
-            if (errorLength <= 0)
-                errorLength = 1;
-
-            if (errorStart >= actual.Length)
-                errorStart = actual.Length - 1;
-
-            if (errorStart + errorLength > actual.Length)
-                errorLength = actual.Length - errorStart;
-
-            string wrongFragment = actual.Substring(errorStart, errorLength);
-
-            string location =
-                $"строка {currentToken.Line}, позиция {currentToken.StartPos + errorStart + 1}";
-
-            string description =
-                $"Ожидалось '{expected}', найдено '{actual}'";
-
-            errors.Add(new SyntaxError
+            private int Priority(string op)
             {
-                Fragment = wrongFragment,
-                Location = location,
-                Description = description
-            });
+                if (op == "*" || op == "/")
+                    return 2;
+
+                if (op == "+" || op == "-")
+                    return 1;
+
+                return 0;
+            }
+
+            private bool IsOperatorToken(LexicalAnalyzer.Token token)
+            {
+                return token != null &&
+                       token.Code == (int)LexicalAnalyzer.TokenType.OPERATOR;
+            }
+
+            private SyntaxError CreateError(
+                LexicalAnalyzer.Token token,
+                string expected,
+                string description)
+            {
+                return new SyntaxError
+                {
+                    Fragment = token != null ? token.Value : "<конец>",
+                    Location = token != null
+                        ? "строка " + token.Line + ", позиция " + (token.StartPos + 1)
+                        : "конец ввода",
+                    Description = description + ". Ожидалось: " + expected
+                };
+            }
         }
+    }
+
+    public class InternalRepresentationResult
+    {
+        public List<SyntaxError> Errors { get; set; }
+        public List<Tetrad> Tetrads { get; set; }
+        public List<string> Poliz { get; set; }
+        public int? PolizValue { get; set; }
+        public string Warning { get; set; }
+
+        public InternalRepresentationResult()
+        {
+            Errors = new List<SyntaxError>();
+            Tetrads = new List<Tetrad>();
+            Poliz = new List<string>();
+            Warning = "";
+        }
+    }
+
+    public class ExpressionParseResult
+    {
+        public List<SyntaxError> Errors { get; set; }
+        public List<Tetrad> Tetrads { get; set; }
+
+        public ExpressionParseResult()
+        {
+            Errors = new List<SyntaxError>();
+            Tetrads = new List<Tetrad>();
+        }
+    }
+
+    public class PolizResult
+    {
+        public List<string> Poliz { get; set; }
+        public int? Value { get; set; }
+        public List<SyntaxError> Errors { get; set; }
+    }
+
+    public class Tetrad
+    {
+        public int Number { get; set; }
+        public string Operation { get; set; }
+        public string Arg1 { get; set; }
+        public string Arg2 { get; set; }
+        public string Result { get; set; }
     }
 
     public class SyntaxError
